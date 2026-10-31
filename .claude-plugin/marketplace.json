@@ -1,0 +1,16 @@
+{
+  "name": "aissa-sr-plugins",
+  "description": "Claude Code plugins by Aissa Serrar for Flutter development.",
+  "owner": {
+    "name": "Aissa Serrar",
+    "email": "aissa.serrar95@gmail.com",
+    "url": "https://www.linkedin.com/in/aissa-serrar/"
+  },
+  "plugins": [
+    {
+      "name": "flutter-clean-arch",
+      "source": "./",
+      "description": "Clean Architecture rules for Flutter with Bloc/Cubit, one skill per layer."
+    }
+  ]
+}
