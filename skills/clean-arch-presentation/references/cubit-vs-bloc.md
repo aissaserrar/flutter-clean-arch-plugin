@@ -8,6 +8,7 @@
 | Cancel an in-flight request when a new one starts | **Bloc** + `restartable()` |
 | Event log / replay / analytics per event | **Bloc** |
 | Several different triggers produce the same transition | **Bloc** |
+| One-off effect (navigate, dialog, snackbar) | `bloc_presentation` event (enum if no fields), not state |
 
 Default: Cubit. Migrate to Bloc only when a concrete need above appears.
 
@@ -15,10 +16,10 @@ Default: Cubit. Migrate to Bloc only when a concrete need above appears.
 
 | Situation | Pattern |
 |---|---|
-| Screen has distinct phases | `sealed class` with Loading / Loaded / Failed |
-| Many independent fields (form, filters) | one class with `copyWith` and a status enum |
-| Refresh must keep showing old data | `Loaded(data, isRefreshing)` or `Failed(failure, lastData)` |
-| Pagination | `Loaded(items, hasMore, isLoadingMore)` |
+| Screen has distinct phases | `sealed class` with `<Feature>StateInitial` / `Loading` / `Success` / `Failure` |
+| Many independent fields (form, filters) | one class with `copyWith` (generated with `copy_with_extension_gen`) and a status enum `initial/loading/success/failure` |
+| Refresh must keep showing old data | `Success(data, isRefreshing)` or `Failure(failure, lastData)` |
+| Pagination | `Success(items, hasMore, isLoadingMore)` |
 
 State must hold: entities or small presentation models, `AppFailure`, flags.
 State must not hold: DTOs, localized strings, `BuildContext`, controllers, futures.

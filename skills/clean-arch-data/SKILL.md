@@ -5,7 +5,7 @@ description: Use when creating or editing the data layer of a Flutter feature (f
 
 # Data layer rules
 
-The data layer implements the domain's repository interfaces and owns everything about the outside world: API shape, JSON, storage, caching.
+The data layer implements the domain's repository interfaces and owns everything about the outside world: API shape, JSON, storage, caching. A feature has a `data/` layer only when it has a repository (caching, merging sources, complex mapping). A thin feature has none: its cubit calls the API client directly.
 
 ## Contents
 
@@ -21,6 +21,7 @@ data/
 
 - Imports `domain` (entities, repository interfaces, failures). Never imports `presentation`.
 - **DTOs never leave `data/`.** Repository methods return domain entities.
+- All API traffic goes through a **strongly typed API client** in `core/http` (typed requests and responses, for example CQRS-style). Prefer **generated contracts** from the API specification over hand-written ones; hand-written DTOs and mappers are for cases where the generated model does not fit the app.
 - Exceptions never leave `data/`. Catch them and return `Failure`.
 - No business rules here (limits, eligibility, calculations). That is domain.
 - No Flutter widgets or `BuildContext`.
@@ -71,7 +72,7 @@ class AccountsRepositoryImpl implements AccountsRepository {
 
 - One place (`ApiException.toFailure()` in `core/error`) maps status codes/exceptions to `NetworkFailure`, `UnauthorizedFailure`, `ServerFailure`, etc.
 - Only catch what you can map. Do not use bare `catch (e)` that swallows programming errors; let unexpected errors surface to the global error handler/Sentry.
-- Log with the shared logger; never `print`.
+- Log with the shared logger (see `clean-arch-observability`); never `print`. Catch-and-log expected exceptions where you catch them.
 
 ## Mock implementation
 

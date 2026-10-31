@@ -13,7 +13,7 @@ lib/
 │   ├── app_router.dart              # assembles feature routes, guards
 │   └── app_router.gr.dart           # generated
 │
-├── core/                            # shared across features. NEVER imports features/
+├── core/                            # shared across features, extracted by the rule of three. NEVER imports features/
 │   ├── auth/                        # AuthCubit / session
 │   ├── error/                       # Result, Success, Failure, AppFailure, shared failures
 │   ├── http/                        # client, interceptors, ApiException
@@ -28,6 +28,7 @@ lib/
 └── features/
     └── <feature>/
         ├── <feature>.dart           # optional barrel: public API for other layers (routes, exposed use cases)
+        ├── <feature>_ids.dart       # analytics ids (<Feature>AnalyticsId)
         ├── <feature>_routes.dart
         ├── <feature>_providers.dart # only file that sees domain AND data
         ├── domain/                  # pure Dart
@@ -46,9 +47,10 @@ lib/
 | Use case | verb phrase | `TransferMoney` |
 | Data source | `Remote<..>DataSource` / `Local<..>DataSource` | |
 | Cubit / Bloc | `<Feature>Cubit` / `<Feature>Bloc` | |
-| State | `<Feature>State` + `<Feature>Loading` etc. | |
-| Page | `<Feature>Page` | |
-| Private view widget | `_<Thing>View`, `_<Thing>Tile` | |
+| State | `<Feature>State` + `<Feature>State<Initial\|Loading\|Success\|Failure>` | `TransferStateLoading` |
+| Page (public, provides its cubit) / content (private) | `<Feature>Page` / `_<Feature>Content` | `TransferPage` / `_TransferContent` |
+| Other private widgets | `_<Thing>Tile`, `_<Thing>Form` | |
+| Analytics ids | `<feature>_ids.dart` → `<Feature>AnalyticsId` | |
 
 ## Import map
 

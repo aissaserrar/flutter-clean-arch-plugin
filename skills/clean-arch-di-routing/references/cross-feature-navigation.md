@@ -7,7 +7,10 @@ Features cannot import each other. Three ways to get what you need, from simples
 Routes are generated into `router/app_router.gr.dart`, which any feature may import.
 
 ```dart
+// auto_route
 context.router.push(TransferRoute(accountId: account.id));
+// go_router (type-safe routes)
+TransferRoute(accountId: account.id).go(context);
 ```
 
 The accounts feature references only the route class, not the transfers feature's code. Good default.
@@ -28,6 +31,8 @@ class AppNavigation implements AccountsNavigation {
   final AppRouter _router;
   @override
   void goToTransfer(String accountId) => _router.push(TransferRoute(accountId: accountId));
+  // go_router: AppNavigation holds the GoRouter instance (no BuildContext available here):
+  //   void goToTransfer(String accountId) => _router.go(TransferRoute(accountId: accountId).location);
 }
 
 // bootstrap/global_providers.dart
@@ -40,7 +45,7 @@ Use when the feature may later be extracted into a package, or tests need to ver
 
 | Need | Solution |
 |---|---|
-| Both features use the same concept (`Money`, `User`) | Move the entity to `core/domain/` |
+| Both features use the same concept (`Money`, `User`) | Keep it in the owning feature and expose it from its barrel; move it to `core/domain/` only when a **third** feature needs it (rule of three) and it is not business-specific |
 | Feature B needs a value only feature A can compute | A exposes a **use case** in its public barrel (`accounts.dart`); B depends on that class via DI |
 | Both react to the same event (logout) | Shared stream/cubit in `core/` (`AuthCubit`) |
 

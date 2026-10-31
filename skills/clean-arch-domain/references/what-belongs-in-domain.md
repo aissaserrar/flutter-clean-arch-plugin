@@ -26,4 +26,9 @@ Use this when unsure where a piece of code goes.
 
 ## When a feature may skip use cases
 
-The feature only displays server-shaped data (BFF) and has no rules. Cubits then call the repository interface directly. Keep the interface in `domain/repositories/` so the data layer stays swappable, and write down the choice in the feature README.
+The feature only displays server-shaped data (BFF) and has no rules. It then needs no use cases, and no repository either unless there is caching, merging of sources or complex mapping:
+
+- **No caching/merging/mapping:** thin feature. The cubit calls the typed API client from `core/http` directly (generated contracts preferred). No `domain/`, no `data/`.
+- **Caching/merging/mapping needed:** add a repository interface in `domain/repositories/` and its implementation in `data/`. The cubit calls the repository; use cases are still optional.
+
+Write down the choice in the feature README.

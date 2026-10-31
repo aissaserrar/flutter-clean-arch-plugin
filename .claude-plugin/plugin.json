@@ -1,6 +1,6 @@
 {
   "name": "flutter-clean-arch",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Clean Architecture rules for Flutter with Bloc/Cubit: one skill per layer (domain, data, presentation, UI), plus DI/routing, testing and a new-feature workflow.",
   "author": {
     "name": "Aissa Serrar",
@@ -10,5 +10,13 @@
   "license": "MIT",
   "homepage": "https://github.com/aissaserrar/flutter-clean-arch-plugin",
   "repository": "https://github.com/aissaserrar/flutter-clean-arch-plugin",
-  "keywords": ["flutter", "dart", "clean-architecture", "bloc", "cubit"]
+  "keywords": [
+    "flutter",
+    "dart",
+    "clean-architecture",
+    "bloc",
+    "cubit",
+    "auto-route",
+    "go-router"
+  ]
 }

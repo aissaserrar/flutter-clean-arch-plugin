@@ -1,32 +1,41 @@
 ---
 name: clean-arch-new-feature
-description: Use when asked to add a new feature, screen, or flow to a Flutter app using Clean Architecture with Bloc/Cubit. Gives the ordered workflow across domain, data, presentation, UI, DI/routing and tests, and tells which layer skill to apply at each step.
+description: Use when asked to add a new feature, screen, or flow to a Flutter app using Clean Architecture with Bloc/Cubit. Chooses the feature shape (thin, with repository, full domain), then gives the ordered workflow across domain, data, presentation, UI, forms, analytics, DI/routing and tests, and tells which layer skill to apply at each step.
 ---
 
 # New feature workflow
 
-Build inside-out: domain first, UI last. Load the named skill at each step and follow its rules.
+Build inside-out: domain first (if the feature has one), UI last. Load the named skill at each step and follow its rules.
 
 ## 0. Clarify (before writing code)
 
 Decide and state, in a few lines:
 - Feature name and what the user can do (the use cases).
 - Data source: real API, mock only, or both.
-- Does it have business rules or combine data sources? If yes, use the full domain layer. If it is a pure display of screen-ready data, a thin feature may skip use cases; state that choice.
-- Navigation entry and exit points; any cross-feature interaction (use `core/` or an interface, never import another feature).
+- **Feature shape** (see `clean-arch-overview`):
+  - **Thin** (presentation only): screen-ready data from a BFF; the cubit calls the typed API client. Skip steps 1 and 2.
+  - **With repository**: caching, merging sources, or complex mapping. Do step 2 (and the repository interface from step 1); use cases are optional.
+  - **Full domain**: business rules, logic reused by several cubits, a feature exposing data to others, or a swappable implementation. Do every step.
+  Do not add a layer "just in case", and do not mix shapes inside one feature.
+- Does it have forms? Which analytics ids does it need?
+- Navigation entry and exit points, which router the app uses (auto_route or go_router), and any cross-feature interaction (use `core/` after the rule of three, the other feature's barrel, or an interface; never import another feature).
 - Flag needed in `AppConfig`?
 
 ## 1. Domain, skill `clean-arch-domain`
 
+(Skip for a thin feature.)
+
 1. Entities (and value objects).
-2. Abstract repository interface returning entities/`Result`.
-3. Use cases, one per action.
-4. Domain failures (sealed).
+2. Abstract repository interface returning entities/`Result` (only if the feature has a repository).
+3. Use cases, one per action (only where there is logic or reuse).
+4. Domain failures (sealed, extending `AppFailure`).
 5. Tests for entities and use cases.
 
 ## 2. Data, skill `clean-arch-data`
 
-1. DTOs with `json_serializable`; run `dart run build_runner build --delete-conflicting-outputs`.
+(Skip for a thin feature.)
+
+1. Prefer generated contracts; otherwise DTOs with `json_serializable` (`dart run build_runner build --delete-conflicting-outputs`).
 2. Mappers.
 3. Data sources (remote/local) if needed.
 4. `RepositoryImpl` with exception to `Failure` mapping.
@@ -35,25 +44,31 @@ Decide and state, in a few lines:
 
 ## 3. Presentation, skill `clean-arch-presentation`
 
-1. Sealed state class (and events if Bloc).
-2. Cubit/Bloc depending on use cases only.
+1. Sealed state `<Feature>State` with `Initial`/`Loading`/`Success`/`Failure` variants (and events if Bloc, presentation events for side effects), all in one file.
+2. Cubit/Bloc depending on use cases, the repository interface, or the API client, as decided in step 0.
 3. `bloc_test` tests.
 
-## 4. UI, skill `clean-arch-ui`
+## 4. UI, skill `clean-arch-ui` (forms: `clean-arch-forms`)
 
-1. Page with `@RoutePage()` and `AutoRouteWrapper` providing the cubit.
-2. Private view widgets, exhaustive state switch, loading/error/empty states.
-3. L10n strings in `.arb` files; regenerate localizations.
-4. Widget tests with a mocked cubit.
+1. Public `<Feature>Page` that provides the cubit, private `_<Feature>Content` underneath.
+2. Exhaustive state switch, loading/error+retry/empty states from the shared patterns, presentation-event listener.
+3. Form cubits and form widgets if the feature has forms.
+4. L10n strings in `.arb` files; regenerate localizations.
+5. Widget tests with a mocked cubit.
 
-## 5. Wiring, skill `clean-arch-di-routing`
+## 5. Analytics and logging, skill `clean-arch-observability`
 
-1. `<feature>_routes.dart` and registration in `router/app_router.dart`.
-2. `<feature>_providers.dart` and spread into `bootstrap/global_providers.dart`.
+1. `<feature>_ids.dart` with the page id(s) and an id for every button.
+2. Log caught expected exceptions; no sensitive data in logs.
+
+## 6. Wiring, skill `clean-arch-di-routing`
+
+1. `<feature>_routes.dart` and registration in the router (auto_route or go_router, as the app uses).
+2. `<feature>_providers.dart` (when the feature has data sources, repositories or use cases) spread into `bootstrap/global_providers.dart`.
 3. `AppConfig` flag if the feature is switchable; exclude routes and providers when off.
 4. Regenerate router code.
 
-## 6. Verify, skill `clean-arch-testing`
+## 7. Verify, skill `clean-arch-testing`
 
 Run, and report real results:
 ```bash
@@ -70,12 +85,12 @@ grep -rn "import .*/data/" lib/features/<feature>/presentation
 ## Output expectations
 
 - Create files in the structure from `clean-arch-overview`.
-- Do not modify other features. If shared code is needed, move it to `core/` and say so.
-- Summarize at the end: files created, decisions made (use cases or not, mocks), what was verified, and anything left undone.
+- Do not modify other features. If shared code is needed, apply the rule of three, move it to `core/`, and say so.
+- Summarize at the end: the feature shape chosen and why, files created, decisions made (use cases or not, mocks), what was verified, and anything left undone.
 
 ## Bundled files
 
 - `templates/README.md`: placeholder table and resulting layout
-- `templates/domain.dart.tpl`, `data.dart.tpl`, `presentation.dart.tpl`, `wiring.dart.tpl`: skeletons with `{{feature}}`, `{{Feature}}`, `{{entity}}`, `{{Entity}}`, `{{app}}` placeholders. Each file contains several `// ===== path =====` sections: split them into the files named in the headers.
+- `templates/domain.dart.tpl`, `data.dart.tpl`, `presentation.dart.tpl`, `wiring.dart.tpl`, `ids.dart.tpl`: skeletons with `{{feature}}`, `{{Feature}}`, `{{entity}}`, `{{Entity}}`, `{{app}}` placeholders. Each file contains several `// ===== path =====` sections: split them into the files named in the headers.
 - `references/feature-checklist.md`: definition of done
 - Dependency check: `bash ${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/scripts/check_dependencies.sh lib`

@@ -6,9 +6,9 @@ It is based on [`docs/simplified-architecture-with-domain.md`](docs/simplified-a
 
 ## What you get
 
-- **Eight skills**, one per concern, that Claude loads automatically when your request matches (no slash commands to remember).
+- **Ten skills**, one per concern, that Claude loads automatically when your request matches (no slash commands to remember).
 - **A dependency checker** (`check_dependencies.sh`) that verifies the import rules in your `lib/` folder.
-- **Feature templates** with placeholders for domain, data, presentation and wiring code.
+- **Feature templates** with placeholders for domain, data, presentation, wiring and analytics-id code.
 - **Reference tables and checklists** that Claude reads only when it needs the detail.
 
 ## The architecture in one picture
@@ -24,9 +24,17 @@ presentation ──► domain ◄── data
 
 - `domain` is pure Dart: no Flutter, HTTP, JSON or storage packages.
 - `data` implements the domain's repository interfaces.
-- `presentation` talks to `domain` only, never to `data`.
+- `presentation` talks to `domain` (or, in simpler features, to a repository interface or the typed API client), never to `data` internals.
 - Only `<feature>_providers.dart` wires `domain` and `data` together.
-- Features never import each other; shared code lives in `core/`.
+- Features never import each other; shared code lives in `core/` and is extracted only after three reuses.
+
+### Pick the smallest feature shape that fits
+
+| Shape | Use when | Cubit depends on |
+|---|---|---|
+| **Thin** (presentation only) | Screen-ready data from a BFF | The typed API client |
+| **With repository** | Caching, merged sources, complex mapping | The repository interface |
+| **Full domain** | Business rules, shared logic, swappable implementation | Use cases |
 
 ## Requirements
 
@@ -34,10 +42,12 @@ The rules assume this stack. If yours differs, see [Customizing](#customizing).
 
 | Concern | Package |
 |---|---|
-| State management | `flutter_bloc` (`bloc_test` for tests) |
-| Navigation | `auto_route` |
-| Dependency injection | `provider` |
-| Serialization | `json_serializable` |
+| State management | `flutter_bloc`, `bloc_presentation` (one-off side effects), `bloc_test` for tests |
+| Presentation state | `flutter_hooks` (controllers, focus nodes) |
+| Navigation | `auto_route` or `go_router` (both documented) |
+| Dependency injection | `provider` (`get_it` for large apps, or where already used) |
+| Serialization | generated API contracts preferred, otherwise `json_serializable` |
+| Generated `copyWith` | `copy_with_extension_gen` (only where needed) |
 | Mocking | `mocktail` |
 
 The plugin itself needs only Claude Code. The optional dependency check needs `bash` and `grep`, both available on macOS and Linux.
@@ -71,7 +81,9 @@ You do not call the skills by name. Describe the task and Claude picks the match
 | "Write the DTO, mapper and repository implementation" | `clean-arch-data` |
 | "Create a cubit for the transfer screen" | `clean-arch-presentation` |
 | "Build the transfer page" | `clean-arch-ui` |
+| "Add a form for this screen" | `clean-arch-forms` |
 | "Register the providers and route for this feature" | `clean-arch-di-routing` |
+| "Add logging / analytics ids" | `clean-arch-observability` |
 | "Write tests for this use case / cubit" | `clean-arch-testing` |
 
 ### Example: add a feature
@@ -80,7 +92,7 @@ You do not call the skills by name. Describe the task and Claude picks the match
 > Add a "payments" feature that lists a user's payments from GET /payments
 ```
 
-Claude follows `clean-arch-new-feature`: it first states whether the feature needs use cases or is a thin display-only feature, then works inside-out (domain, data, presentation, UI, wiring), writes tests, and finishes by running `dart format`, `flutter analyze`, `flutter test` and the dependency check, reporting the real results.
+Claude follows `clean-arch-new-feature`: it first states the feature shape (here most likely a thin feature, since it only displays screen-ready data from one endpoint), then builds only the layers that shape needs, from the inside out (domain, data, presentation, UI, analytics ids, wiring), writes tests, and finishes by running `dart format`, `flutter analyze`, `flutter test` and the dependency check, reporting the real results.
 
 ### Example: review existing code
 
@@ -94,12 +106,14 @@ Claude checks imports against the dependency rules first, then each layer agains
 
 | Skill | Purpose |
 |---|---|
-| `clean-arch-overview` | Layers, folder structure, dependency rules, which skill to load |
+| `clean-arch-overview` | Feature shapes, layers, folder structure, dependency and shared-code rules, which skill to load |
 | `clean-arch-domain` | Entities, repository interfaces, use cases, failures |
 | `clean-arch-data` | DTOs, mappers, data sources, repository implementation, error mapping |
-| `clean-arch-presentation` | Cubit/Bloc, state design, lifecycle |
-| `clean-arch-ui` | Pages, widgets, `BlocBuilder`/`BlocListener`, l10n, design system |
-| `clean-arch-di-routing` | Providers, `auto_route`, flavors and `AppConfig` |
+| `clean-arch-presentation` | Cubit/Bloc, state design and naming, presentation events, lifecycle |
+| `clean-arch-ui` | Pages, widgets, error/loading patterns, l10n, design system |
+| `clean-arch-forms` | Form cubits, naming, consistent form behavior |
+| `clean-arch-di-routing` | Providers/`get_it`, `auto_route` and `go_router`, async startup, flavors and `AppConfig` |
+| `clean-arch-observability` | Logging levels, what to log, analytics ids |
 | `clean-arch-testing` | Tests per layer |
 | `clean-arch-new-feature` | End-to-end workflow that chains the others |
 
@@ -124,7 +138,7 @@ Exit code `0` means clean, `1` means violations (each one is printed), `2` means
 
 ## Feature templates
 
-`skills/clean-arch-new-feature/templates/*.tpl` hold skeletons for domain, data, presentation and wiring code. Placeholders (`{{feature}}`, `{{Feature}}`, `{{entity}}`, `{{Entity}}`, `{{app}}`) are listed in `templates/README.md`. Claude fills them in when it creates a feature; you can also copy them by hand.
+`skills/clean-arch-new-feature/templates/*.tpl` hold skeletons for domain, data, presentation, wiring and analytics ids. Placeholders (`{{feature}}`, `{{Feature}}`, `{{entity}}`, `{{Entity}}`, `{{app}}`) are listed in `templates/README.md`. Claude fills them in when it creates a feature; you can also copy them by hand.
 
 ## What the plugin runs and accesses
 
@@ -148,6 +162,7 @@ The rules assume the stack in [Requirements](#requirements). If yours differs, e
 
 ## Changelog
 
+- **0.2.0:** feature shapes (thin / with repository / full domain); state naming `Initial`/`Loading`/`Success`/`Failure` with presentation events; go_router documented alongside auto_route; provider tree-depth guidance and `get_it`; rule of three for shared code; new skills for forms and for logging/analytics; error, loading and connectivity patterns; multi-package layout; guidance on when to use interfaces; testing additions.
 - **0.1.1:** expanded README (usage, disclosure of what the plugin runs, troubleshooting); added the design doc and MIT license; marketplace manifest.
 - **0.1.0:** initial release.
 

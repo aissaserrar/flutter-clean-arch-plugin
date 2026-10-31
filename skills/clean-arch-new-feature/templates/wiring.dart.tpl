@@ -1,4 +1,6 @@
 // ===== features/{{feature}}/{{feature}}_routes.dart =====
+// auto_route version. With go_router the app owns the route classes and this feature only exposes
+// {{Feature}}Page (see clean-arch-di-routing/references/go-router.md).
 abstract final class {{Feature}}Routes {
   static List<AutoRoute> get routes => [
         AutoRoute(page: {{Feature}}Route.page, path: '/{{feature}}'),
@@ -6,6 +8,7 @@ abstract final class {{Feature}}Routes {
 }
 
 // ===== features/{{feature}}/{{feature}}_providers.dart =====
+// Not needed for a thin feature (its cubit takes the typed API client from core/http).
 final {{feature}}Providers = <SingleChildWidget>[
   Provider<Remote{{Feature}}DataSource>(
     create: (context) => Remote{{Feature}}DataSource(context.read()),

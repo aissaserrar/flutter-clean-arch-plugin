@@ -7,9 +7,10 @@
 | Mapper | extension/function | none | null, empty, unknown enum, negative, locale-specific formats |
 | Data source | request building + parsing | fake `http.Client` | path, headers, body, sample real responses |
 | Repository impl | success + failures | data sources | DTO to entity, every exception to failure, cache hit/miss |
-| Cubit / Bloc | state sequence | **use cases** | success, each failure, retry, guard against double submit, refresh keeps data |
+| Cubit / Bloc | state sequence + presentation events | **use cases** (or the repository / API client for thinner features) | success, each failure, retry, guard against double submit, refresh keeps data |
 | Widget | one behavior per state | mocked cubit | loading, error + retry, empty, content, taps call cubit methods |
-| Golden | design-system widgets, key screens | none | light/dark, text scale if relevant |
+| Golden | design-system widgets, key screens (one `screenGoldenTest` helper with provider overrides) | none | light/dark, text scale if relevant |
+| Shared code (`core/`) | everything | none | full coverage |
 | Integration | critical flows | mock-backed flavor | login, main transaction |
 
 ## Conventions
@@ -19,6 +20,8 @@
 - Arrange builders at the bottom of the file (`_aTransfer()`), not shared mutable fixtures.
 - JSON fixtures in `test/fixtures/*.json`, loaded by a helper.
 - Inject `Clock` (the `clock` package) instead of calling `DateTime.now()` in code under test.
+- `mocktail`: call `registerFallbackValue(...)` once (in `setUpAll`) for each custom type used with `any()`.
+- Do not repeat tests of a base cubit's generic logic in each subclass.
 
 ## Commands
 

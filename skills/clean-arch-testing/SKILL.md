@@ -11,7 +11,7 @@ Libraries: `flutter_test`, `bloc_test`, `mocktail`. Prefer small hand-written fa
 
 ## Domain (most business tests live here)
 
-- Plain `test`, no Flutter binding.
+- Plain `test`, no Flutter binding. **Test business logic by default**: most of it lives in use cases, entities and cubits.
 - Entities: equality, derived getters, value-object validation.
 - Use cases: fake/mock repository interfaces. Cover the happy path, **each business rule branch**, and each failure returned.
 - No mocking of the thing under test. Assert on the returned `Result`, not on internal calls, unless the call is the behavior (for example "does not call transfer when over the limit").
@@ -24,21 +24,23 @@ Libraries: `flutter_test`, `bloc_test`, `mocktail`. Prefer small hand-written fa
 
 ## Presentation (cubits and blocs)
 
-- Use `blocTest`; mock **use cases** (never repositories) with `mocktail`.
-- Assert the full emitted state sequence: `[Loading, Loaded(...)]`, `[Loading, Failed(...)]`.
+- Use `blocTest`; mock what the cubit depends on with `mocktail`: **use cases** in a full feature, the repository interface in a feature with a repository, the API client in a thin feature.
+- If a cubit extends a base cubit that already has tests for its generic logic, test only the behavior the subclass adds (do not duplicate the base tests).
+- Assert the full emitted state sequence: `[LoadingState, SuccessState(...)]`, `[LoadingState, FailureState(...)]`, and presentation events by listening to the cubit's `presentation` stream (for example `expectLater(cubit.presentation, emits(TransferPresentationEvent.completed))`).
 - Cover: initial state, success, each failure, retry, double-submit guard, and no emission after `close()`.
 - Blocs with transformers: use `wait:` / fake async to verify debounce and `droppable` behavior.
 
 ```dart
 blocTest<TransferCubit, TransferState>(
-  'emits Failed when limit exceeded',
+  'emits Failure when limit exceeded',
+  setUp: () => registerFallbackValue(_aTransfer()),   // required by mocktail for any() on a custom type
   build: () {
     when(() => transferMoney(any()))
         .thenAnswer((_) async => Failure(TransferLimitExceeded(Money(100))));
     return TransferCubit(transferMoney);
   },
   act: (c) => c.submit(transfer),
-  expect: () => [const TransferLoading(), isA<TransferFailed>()],
+  expect: () => [const TransferStateLoading(), isA<TransferStateFailure>()],
 );
 ```
 
@@ -46,7 +48,8 @@ blocTest<TransferCubit, TransferState>(
 
 - Widget tests with a mocked cubit (`MockCubit<State>` from `bloc_test`) provided via `BlocProvider.value`. Wrap with the app theme and localization delegates (a shared `pumpApp` helper).
 - Test one behavior per state: loading shows spinner, failure shows message and retry, tapping a button calls the right cubit method (`verify`).
-- Golden tests for design-system widgets and key screens; regenerate deliberately and review the diff.
+- Use widget tests for UI-heavy screens and forms: correct cubit states do not prove the UI reacts correctly to input.
+- **Golden tests** for design-system widgets and key screens. Keep one helper that runs a golden test of a single screen across the project's scenarios (phone, tablet, dark mode, larger font) and accepts provider overrides for the screen's dependencies, for example `screenGoldenTest(name, screen: ..., providers: [...])`. Regenerate deliberately and review the diff.
 
 ## Integration
 
@@ -56,13 +59,15 @@ blocTest<TransferCubit, TransferState>(
 
 - Tests do not hit the network, real storage or the clock. Inject them (`clock` package, fake storage).
 - One reason to fail per test; descriptive names that state the behavior.
+- **All shared code (`core/`/common) is fully tested.**
 - Do not test generated code, trivial getters or the framework.
 - A bug fix starts with a failing test at the lowest layer where the bug lives.
 
 ## Checklist before finishing
 
 - [ ] Every use case and mapper has a test
-- [ ] Cubits tested with mocked use cases, all failure paths covered
+- [ ] Cubits tested with mocked dependencies (use cases/repository/API client), all failure paths covered
+- [ ] Shared code fully tested
 - [ ] Widgets tested with mocked cubits, not real data
 - [ ] `flutter test` and `flutter analyze --fatal-infos` pass
 

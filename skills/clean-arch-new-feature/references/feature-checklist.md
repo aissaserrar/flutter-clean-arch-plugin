@@ -1,6 +1,7 @@
 # Feature definition of done
 
 ## Design
+- [ ] Feature shape stated (thin / with repository / full domain) and layers match it
 - [ ] Use cases listed (verbs), or documented decision to skip them for this feature
 - [ ] Entities and failures named in business language
 - [ ] Cross-feature needs resolved without importing another feature
@@ -17,14 +18,17 @@
 - [ ] Mock repository available
 
 ## Presentation / UI
-- [ ] Sealed state, cubit depends on use cases only
+- [ ] Sealed state named `<Feature>State<Initial|Loading|Success|Failure>`; cubit, state and presentation events in one file
+- [ ] Cubit depends on use cases / repository / API client as the shape requires; side effects use presentation events
 - [ ] `isClosed` check after every await before emit
-- [ ] Page provides cubit via `AutoRouteWrapper`
+- [ ] Public Page provides the cubit; private `_<Feature>Content` renders it
 - [ ] Loading / error+retry / empty states
-- [ ] Strings in `.arb`, tokens for style
+- [ ] Strings in `.arb`, design system components and tokens for style
+- [ ] Forms follow `clean-arch-forms`
+- [ ] `<feature>_ids.dart` with page and button analytics ids; no sensitive data in logs
 
 ## Wiring
-- [ ] Routes registered, guard behavior checked
+- [ ] Routes registered (auto_route or go_router), guard behavior checked
 - [ ] Providers spread in `global_providers.dart`
 - [ ] Flag in `AppConfig` if switchable (routes + providers conditional)
 

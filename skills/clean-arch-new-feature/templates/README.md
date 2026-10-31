@@ -9,7 +9,13 @@ Copy these skeletons and replace the placeholders:
 | `{{entity}}` / `{{Entity}}` | main entity | `payment` / `Payment` |
 | `{{app}}` | package name from pubspec | `app` |
 
-`get_{{entity}}s.dart` is a pass-through use case. Keep it when the project convention is "always use cases"; for a thin display-only feature, delete it and inject the repository into the cubit (see `clean-arch-domain`).
+The routes template is written for auto_route. For go_router, expose `{{Feature}}Page` and define the route class in the app's navigation files (see `clean-arch-di-routing/references/go-router.md`).
+
+Pick the feature shape first (see `clean-arch-overview`):
+
+- **Full domain:** use every file below.
+- **With repository:** keep the repository interface, `data/`, and wiring; `get_{{entity}}s.dart` is an optional pass-through use case. Keep it only if the project convention is "always use cases"; otherwise delete it and inject `{{Feature}}Repository` into the cubit.
+- **Thin:** skip `domain/` and `data/`; the cubit takes the typed API client from `core/http`, and there is no `{{feature}}_providers.dart` unless the feature has its own dependencies.
 
 Resulting layout:
 
@@ -28,6 +34,7 @@ features/{{feature}}/
 ├── presentation/
 │   ├── cubit/{{feature}}_cubit.dart
 │   └── ui/{{feature}}_page.dart
+├── {{feature}}_ids.dart
 ├── {{feature}}_routes.dart
 └── {{feature}}_providers.dart
 ```

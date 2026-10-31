@@ -2,7 +2,7 @@
 
 A variant of `simplified-architecture.md` that adds a **domain layer** (entities, repository contracts, use cases). Use it when the app contains real business logic. Everything not described here (DI, navigation, flavors, testing, CI) works the same as in the base template.
 
-**Stack:** `flutter_bloc`, `auto_route`, `provider`, `--dart-define` flavors. Replace `<feature>` and `<Feature>` with your own names.
+**Stack:** `flutter_bloc` with `bloc_presentation`, `auto_route` or `go_router`, `provider` (`get_it` for large apps), `--dart-define` flavors. Replace `<feature>` and `<Feature>` with your own names.
 
 ## 1. When to use this version
 
@@ -25,12 +25,22 @@ Stay with the base template (no domain layer) when:
 
 A domain layer for pure pass-through code adds files and no value. Add it per feature, only where there is logic to put in it.
 
+### Three feature shapes
+
+| Shape | Use when | Cubit depends on |
+|---|---|---|
+| **Thin** (presentation only) | Screen-ready data from a BFF; one typed API client call | The strongly typed API client from `core/http` (generated contracts preferred) |
+| **With repository** | Caching, several sources to merge, or complex mapping | The repository interface |
+| **Full domain** | Business rules, logic shared by several cubits, swappable implementation | Use cases |
+
+A repository is added only when one of those needs exists. When it exists it is an interface in `domain/repositories/`. Pick one shape per feature.
+
 ## 2. Principles
 
 1. Feature-first folders, with `presentation -> domain <- data` inside each feature.
 2. **The domain layer depends on nothing.** No Flutter, no HTTP, no JSON, no storage packages. Plain Dart only.
 3. **Data implements domain.** The domain defines repository interfaces and the data layer implements them (dependency inversion).
-4. The presentation layer (cubits, pages) talks only to use cases, not to repositories.
+4. The presentation layer (cubits, pages) talks to use cases. In features without use cases it talks to the repository interface, or in a thin feature to the typed API client. It never talks to `data/` internals.
 5. Features never import other features. Shared code lives in `core/`.
 6. One composition root in `bootstrap/`.
 
@@ -59,13 +69,17 @@ lib/
         │   ├── dtos/             # JSON models
         │   ├── mappers/          # dto <-> entity
         │   ├── sources/          # remote_data_source.dart, local_data_source.dart
-        │   └── <feature>_repository_impl.dart
+        │   ├── <feature>_repository_impl.dart
+        │   └── mock_<feature>_repository.dart
         ├── presentation/
         │   ├── cubit/
         │   └── ui/
+        ├── <feature>_ids.dart    # analytics ids
         ├── <feature>_routes.dart
         └── <feature>_providers.dart
 ```
+
+A **thin** feature has only `presentation/` (and its routes, ids and, if needed, providers). A feature **with a repository** adds `data/` and the repository interface. See section 1.
 
 ## 4. Dependency direction
 
@@ -120,8 +134,8 @@ class TransferMoney {
 
   Future<Result<void>> call(Transfer transfer) async {
     final limit = await _limits.getDailyLimit();
-    if (transfer.amount > limit.remaining) {
-      return Failure(TransferLimitExceeded(limit.remaining));
+    if (limit case Success(:final value) when transfer.amount > value.remaining) {
+      return Failure(TransferLimitExceeded(value.remaining));
     }
     return _accounts.transfer(transfer);
   }
@@ -130,6 +144,7 @@ class TransferMoney {
 
 ### Data
 
+- **API client and contracts:** all traffic goes through a strongly typed API client in `core/http`. Prefer contracts generated from the API specification; hand-written DTOs are for when the generated model does not fit the app.
 - **DTO:** mirrors the API (`@JsonSerializable`). Never leaves the data layer.
 - **Mapper:** `AccountDto.toEntity()` and `Account.toDto()`. All wire-format knowledge lives here.
 - **Data sources:** `RemoteAccountsDataSource` (HTTP), `LocalAccountsDataSource` (storage). Optional; use them when you cache or support offline.
@@ -158,26 +173,51 @@ class AccountsRepositoryImpl implements AccountsRepository {
 - **UI:** unchanged from the base template.
 
 ```dart
-class TransferCubit extends Cubit<TransferState> {
-  TransferCubit(this._transferMoney) : super(const TransferInitial());
+class TransferCubit extends Cubit<TransferState>
+    with BlocPresentationMixin<TransferState, TransferPresentationEvent> {
+  TransferCubit(this._transferMoney) : super(const TransferStateInitial());
   final TransferMoney _transferMoney;
 
   Future<void> submit(Transfer transfer) async {
-    emit(const TransferLoading());
+    if (state is TransferStateLoading) return;          // double-submit guard
+    emit(const TransferStateLoading());
     final result = await _transferMoney(transfer);
-    emit(switch (result) {
-      Success() => const TransferDone(),
-      Failure(:final failure) => TransferFailed(failure),
-    });
+    if (isClosed) return;
+    switch (result) {
+      case Success():
+        emit(const TransferStateSuccess());
+        emitPresentation(TransferPresentationEvent.completed);
+      case Failure(:final failure):
+        emit(TransferStateFailure(failure));
+    }
   }
 }
+
+sealed class TransferState extends Equatable {
+  const TransferState();
+  @override
+  List<Object?> get props => const [];
+}
+final class TransferStateInitial extends TransferState { const TransferStateInitial(); }
+final class TransferStateLoading extends TransferState { const TransferStateLoading(); }
+final class TransferStateSuccess extends TransferState { const TransferStateSuccess(); }
+final class TransferStateFailure extends TransferState {
+  const TransferStateFailure(this.failure);
+  final AppFailure failure;
+  @override
+  List<Object?> get props => [failure];
+}
+
+enum TransferPresentationEvent { completed }   // one-off effect, no fields -> enum
 ```
+
+State names are `<Feature>State<Initial|Loading|Success|Failure>`. All classes of a cubit (cubit, events, state, presentation events) live in one file, in that order. One-off effects (navigate, dialog) use `bloc_presentation` events (an `enum` when they carry no fields), not state. The `clean-arch-presentation` skill has the full rules, including the status-enum alternative for form-like states.
 
 ## 6. Error handling
 
-- `core/error` defines `Failure` (a sealed class: `NetworkFailure`, `ValidationFailure`, `UnauthorizedFailure`, and so on) and `Result<T>` (`Success` or `Failure`).
-- The data layer catches exceptions and returns `Failure`s. It never lets raw `DioException` or `SocketException` types reach the domain.
-- Use cases add domain failures (`TransferLimitExceeded`).
+- `core/error` defines `AppFailure` (the base type of every expected failure: `NetworkFailure`, `ValidationFailure`, `UnauthorizedFailure`, and so on) and `Result<T>`, which is either `Success(value)` or `Failure(failure)`. The `Failure` case wraps an `AppFailure`.
+- The data layer catches exceptions and returns `Failure`s wrapping an `AppFailure`. It never lets raw `DioException` or `SocketException` types reach the domain.
+- Use cases add domain failures that extend `AppFailure` (`TransferLimitExceeded`).
 - Cubits map failures to messages and states.
 
 ## 7. Dependency injection
@@ -199,11 +239,15 @@ final accountsProviders = <SingleChildWidget>[
 
 Pages create their cubit with `BlocProvider(create: (c) => TransferCubit(c.read()))`.
 
+`provider` is the default. Every provided dependency adds a widget to the tree, and Flutter has an implicit tree-depth limit, so an app with a very large number of global dependencies can hit a runtime stack overflow. For large projects choose the mechanism case by case (for example `provider` for page-scoped cubits plus a locator such as `get_it` for many global services). If the app already uses `get_it`, keep it, register only in the composition root, and keep passing dependencies through constructors (never call `getIt<X>()` inside cubits, use cases or repositories).
+
+Create values inside `create:` (not `Provider.value`), provide page-scoped cubits from the page, and never create a cubit in `build` with `useBloc`.
+
 ## 8. Cross-feature sharing
 
 Features can't import each other. When feature B needs data from feature A:
 
-1. Put the shared **entity or contract** in `core/` (for example `core/domain/money.dart`), or
+1. Put the shared **entity or contract** in `core/` (for example `core/domain/money.dart`) once a **third** place needs it (rule of three; start in the owning feature), or
 2. Have feature A expose a **use case or small interface** in its public barrel (`features/a/a.dart`) and register it in DI, so B depends on the interface and never on A's repository.
 
 Add the matching import lint rules:
@@ -219,21 +263,23 @@ Add the matching import lint rules:
 | Entities and use cases | Plain `dart test`; fake repositories. This is where most business tests go. |
 | Mappers | Unit tests: DTO <-> entity round trips |
 | Repository impl | Fake data sources / HTTP client |
-| Cubits | `bloc_test` with mocked use cases |
-| Widgets | Providers overridden with mocked use cases |
+| Cubits | `bloc_test` with mocked use cases (the repository or API client in thinner features); assert state sequences and presentation events |
+| Widgets | Mocked cubits provided with `BlocProvider.value`; golden tests through one helper that takes provider overrides |
+| Shared code (`core/`) | Fully tested |
 
 Use cases make business logic testable without Flutter, a mock HTTP client or a widget tree.
 
 ## 10. How to add a feature (checklist)
 
+0. Pick the **feature shape** (section 1): thin, with repository, or full domain. Steps 1 to 3 apply only to the shapes that have those layers.
 1. Define **entities** and the **repository interface** in `domain/`.
-2. Write **use cases** only for actions with logic or reuse. For a plain read with nothing in between, call the repository through one thin use case, or skip the use case for that screen (see section 11).
+2. Write **use cases** only for actions with logic or reuse. For a plain read with nothing in between, call the repository through one thin use case, or skip the use case for that screen (see section 11). If there is no caching, merging or mapping either, make it a thin feature and skip the repository too.
 3. Create **DTOs, mappers, data sources** and `RepositoryImpl` in `data/`. Add a mock implementation.
-4. Write the **cubit** against use cases, plus a sealed state.
-5. Build the **page** with an `AutoRouteWrapper` that provides the cubit.
-6. Register routes and providers (section 7).
-7. Add l10n strings, analytics ids and a flag in `AppConfig` if needed.
-8. Write tests bottom-up: use cases, mappers, cubit.
+4. Write the **cubit** against use cases (or the repository / API client, per the shape), plus a sealed state and presentation events, in one file.
+5. Build the **page**: a public `<Feature>Page` that provides the cubit and a private `_<Feature>Content` that renders it (`AutoRouteWrapper` with `auto_route`).
+6. Register routes (`auto_route` or `go_router`) and providers (section 7).
+7. Add l10n strings, analytics ids (`<feature>_ids.dart`) and a flag in `AppConfig` if needed.
+8. Write tests bottom-up: use cases, mappers, cubit, widgets.
 
 ## 11. Pitfalls
 
@@ -242,6 +288,8 @@ Use cases make business logic testable without Flutter, a mock HTTP client or a 
 - **Entities that mirror DTOs one to one.** If they stay identical, you may not need a domain layer yet.
 - **Leaking layers.** No `fromJson` on entities, no `BuildContext` in use cases, no DTOs in cubits.
 - **Domain layer for every feature at once.** Add it feature by feature, starting where the logic is.
+- **Repository "just in case".** No caching, merging or mapping means no repository: call the typed API client.
+- **Early shared code.** Extract to `core/` only after three reuses; no business code and no reusable UI components there.
 
 ## 12. Choosing between the two templates
 
@@ -254,3 +302,17 @@ Use cases make business logic testable without Flutter, a mock HTTP client or a 
 | Files per feature | Fewer | More, with clearer places for logic |
 
 You can also mix the two: use the base layers in simple features and add `domain/` only to the features that need it. Keep each feature internally consistent.
+
+## 13. Conventions covered by the plugin's skills
+
+These are not repeated here; each has its own skill or reference:
+
+| Topic | Where |
+|---|---|
+| Routing with `auto_route` or `go_router` | `clean-arch-di-routing` |
+| `provider` vs `get_it`, async startup loading | `clean-arch-di-routing` |
+| Forms (form cubits, naming, consistent behavior) | `clean-arch-forms` |
+| Logging levels, analytics ids | `clean-arch-observability` |
+| Error, loading and connectivity UI patterns | `clean-arch-ui` (`references/error-and-loading-patterns.md`) |
+| Multi-package layout for large projects | `clean-arch-overview` (`references/multi-package-layout.md`) |
+| When to use interfaces | `clean-arch-domain` (`references/when-to-use-interfaces.md`) |
