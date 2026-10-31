@@ -314,5 +314,4 @@ These are not repeated here; each has its own skill or reference:
 | Forms (form cubits, naming, consistent behavior) | `clean-arch-forms` |
 | Logging levels, analytics ids | `clean-arch-observability` |
 | Error, loading and connectivity UI patterns | `clean-arch-ui` (`references/error-and-loading-patterns.md`) |
-| Multi-package layout for large projects | `clean-arch-overview` (`references/multi-package-layout.md`) |
 | When to use interfaces | `clean-arch-domain` (`references/when-to-use-interfaces.md`) |

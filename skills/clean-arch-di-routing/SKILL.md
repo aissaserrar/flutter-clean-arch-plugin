@@ -35,7 +35,7 @@ final accountsProviders = <SingleChildWidget>[
 
 ### Provider and tree depth (large apps)
 
-Every dependency provided with `provider` adds a widget to the tree. Flutter has an implicit tree-depth limit, so an app with a **very large number of global dependencies** can fail at runtime with a stack overflow. For small and medium apps this does not matter. For **large projects** (many teams, many packages, dozens of global dependencies) decide the DI mechanism case by case; there is no single battle-tested replacement. Typical choices:
+Every dependency provided with `provider` adds a widget to the tree. Flutter has an implicit tree-depth limit, so an app with a **very large number of global dependencies** can fail at runtime with a stack overflow. For small and medium apps this does not matter. For **large projects** (dozens of global dependencies) decide the DI mechanism case by case; there is no single battle-tested replacement. Typical choices:
 
 - Keep `provider` for page-scoped things (cubits, form cubits) and move the many global services to a locator (`get_it`) in the composition root.
 - Group related services into one object so one provider supplies several.

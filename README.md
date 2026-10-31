@@ -49,6 +49,8 @@ The rules assume this stack. If yours differs, see [Customizing](#customizing).
 | Generated `copyWith` | `copy_with_extension_gen` (only where needed) |
 | Mocking | `mocktail` |
 
+The plugin targets a **single Flutter app package** (one `pubspec.yaml`, feature-first folders under `lib/`). Monorepos with an app plus multiple packages are not covered.
+
 The plugin itself needs only Claude Code. The optional dependency check needs `bash` and `grep`, both available on macOS and Linux.
 
 ## Install
@@ -161,7 +163,7 @@ The rules assume the stack in [Requirements](#requirements). If yours differs, e
 
 ## Changelog
 
-- **0.2.0:** feature shapes (thin / with repository / full domain); state naming `Initial`/`Loading`/`Success`/`Failure` with presentation events; go_router documented alongside auto_route; provider tree-depth guidance and `get_it`; rule of three for shared code; new skills for forms and for logging/analytics; error, loading and connectivity patterns; multi-package layout; guidance on when to use interfaces; testing additions.
+- **0.2.0:** feature shapes (thin / with repository / full domain); state naming `Initial`/`Loading`/`Success`/`Failure` with presentation events; go_router documented alongside auto_route; provider tree-depth guidance and `get_it`; rule of three for shared code; new skills for forms and for logging/analytics; error, loading and connectivity patterns; guidance on when to use interfaces; testing additions.
 - **0.1.1:** expanded README (usage, disclosure of what the plugin runs, troubleshooting); added the design doc and MIT license; marketplace manifest.
 - **0.1.0:** initial release.
 

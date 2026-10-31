@@ -8,8 +8,8 @@ Use go_router's type-safe routes: strongly typed route objects instead of raw pa
 
 ## Where routes live
 
-- Routes are defined in the **main app package**, in `lib/router/` (the `router/` folder from `clean-arch-overview`).
-- Small single-package projects: one `routes.dart`. Large projects: one file per package, named `<package-name>_routes.dart` (for example `accounts_routes.dart`).
+- Routes are defined in `lib/router/` (the `router/` folder from `clean-arch-overview`).
+- One `routes.dart`, or one `<feature>_routes.dart` per feature if the file grows.
 - Define the **navigation tree** (the `TypedGoRoute` / `TypedShellRoute` declarations) in a **separate file** from the route classes.
 
 ```dart

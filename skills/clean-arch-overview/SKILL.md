@@ -9,6 +9,8 @@ Feature-first. Inside each feature that has layers: `presentation -> domain <- d
 
 ## Folder structure
 
+Scope: a **single Flutter app package**. `core/` and `design_system/` are folders inside `lib/`, not separate packages. Monorepos (an app plus several packages) are out of scope.
+
 ```
 lib/
 ├── main.dart / app.dart
@@ -27,7 +29,7 @@ lib/
 test/                     # mirrors lib/
 ```
 
-Single-page feature with no layers: files may sit flat in the feature folder (`<feature>_page.dart`, `<feature>_cubit.dart`, `<feature>_ids.dart`). Multi-page features get one subfolder per page plus a shared `widgets/`. For several teams or packages, see `references/multi-package-layout.md`.
+Single-page feature with no layers: files may sit flat in the feature folder (`<feature>_page.dart`, `<feature>_cubit.dart`, `<feature>_ids.dart`). Multi-page features get one subfolder per page plus a shared `widgets/`.
 
 ## Feature shapes: pick the smallest that fits, state the choice
 
@@ -57,7 +59,6 @@ Single-page feature with no layers: files may sit flat in the feature folder (`<
 - **No reusable UI components in `core/`**: they go in `design_system/`.
 - Group files by function (`formatters/`, `widgets/`), not by feature.
 - **All shared code is fully tested.** (This also discourages extracting it prematurely.)
-- Custom platform plugins (anything with native code) live in their own package, not in a feature, and do not use the federated-plugin layout.
 
 ## Code style
 
@@ -84,7 +85,6 @@ When reviewing code, flag any import that violates the rules above before anythi
 ## Bundled files
 
 - `references/folder-structure.md`: full tree, naming conventions, per-folder import map
-- `references/multi-package-layout.md`: monorepo/multi-team layout (feature packages, common package, ownership)
 - `../clean-arch-domain/references/when-to-use-interfaces.md`: rule of thumb for interfaces vs concrete classes
 - `scripts/check_dependencies.sh [lib_dir]`: verifies the import rules above (exit 1 on violations). Run it after creating or moving files and before finishing a review:
   `bash ${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/scripts/check_dependencies.sh lib`

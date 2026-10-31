@@ -39,7 +39,7 @@ class AppNavigation implements AccountsNavigation {
 Provider<AccountsNavigation>(create: (c) => c.read<AppNavigation>()),
 ```
 
-Use when the feature may later be extracted into a package, or tests need to verify navigation.
+Use when tests need to verify navigation or the feature should not know about the router.
 
 ## 3. Sharing data
 
