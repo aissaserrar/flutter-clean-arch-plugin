@@ -1,6 +1,6 @@
 {
   "name": "flutter-clean-arch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Clean Architecture rules for Flutter with Bloc/Cubit: one skill per layer (domain, data, presentation, UI), plus DI/routing, testing and a new-feature workflow.",
   "author": {
     "name": "Aissa Serrar",
