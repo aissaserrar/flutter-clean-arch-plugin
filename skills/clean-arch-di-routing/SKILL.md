@@ -26,10 +26,10 @@ final accountsProviders = <SingleChildWidget>[
 ];
 ```
 
-- **Create the value inside `create:`.** Do not build it outside and pass it with `Provider.value` (not even from `useMemoized`); `.value` is for values that already exist and are owned elsewhere (for example the result of async startup loading).
+- **Create the value inside `create:`.** Do not build it outside and pass it with `Provider.value` (not even from a value cached in the widget); `.value` is for values that already exist and are owned elsewhere (for example the result of async startup loading).
 - Dependencies flow through **constructors**. `context.read` appears only in `create:` callbacks and page wrappers, never inside cubits, use cases or repositories.
 - Order: sources, repositories, use cases. A thin feature registers nothing of its own (its cubit takes the typed API client from `core/`). Cubits are **not** registered globally; pages create them with `BlocProvider` so they close with the route. Only truly app-wide cubits (auth, settings, connectivity) are global.
-- **Page-scoped dependencies are provided by the page.** The public `<Feature>Page` creates its cubit with `BlocProvider`; the private `_<Feature>Content` underneath reads it. This lets the content be tested with a mocked cubit. Never create a cubit inside `build` with a `useBloc` hook.
+- **Page-scoped dependencies are provided by the page.** The public `<Feature>Page` creates its cubit with `BlocProvider`; the private `_<Feature>Content` underneath reads it. This lets the content be tested with a mocked cubit. Never create a cubit inside `build`.
 - Use `lazy: false` only for services that must start eagerly (listeners). Provide `dispose:` for anything with `close()`/`dispose()`.
 - Do not use static singletons or service locators alongside provider.
 
@@ -94,7 +94,7 @@ See `references/go-router.md`: type-safe routes, route tree in its own file, pag
 
 - [ ] Feature providers registered by interface, spread in `global_providers.dart` (or registered in the `get_it` composition root)
 - [ ] No `context.read` (or `getIt<X>()` in a `get_it` app) outside registration code and `create:` callbacks / page wrappers
-- [ ] Values created in `create:`, not passed through `Provider.value`; no `useBloc` in `build`
+- [ ] Values created in `create:`, not passed through `Provider.value`; no cubit created inside `build`
 - [ ] Routes registered with the project's router; guard behavior verified for logged-out and logged-in
 - [ ] Mock and real repository selectable via `AppConfig`
 

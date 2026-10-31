@@ -46,7 +46,7 @@ Put the choice in the project's conventions so every form behaves the same.
 
 ## Rules
 
-- Keep controllers and focus nodes in the widget with `flutter_hooks` and dispose them.
+- Keep controllers and focus nodes in the widget's `State` and dispose them.
 - Disable submit while the request runs; the feature cubit also ignores a second submit.
 - A failed submit shows a contextual error near the action and keeps the user's input (see `clean-arch-ui`).
 - No `BuildContext` in form cubits.

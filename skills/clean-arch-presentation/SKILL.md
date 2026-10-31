@@ -14,7 +14,7 @@ Cubits and Blocs hold screen state and translate user actions into calls to the 
 - One-off side effects (navigate, dialog, snackbar) use **`bloc_presentation`** presentation events, handled in the UI. State is for data the screen renders, not for events.
 - No business rules (money limits, fee math): those belong in use cases.
 - Dependencies come through the constructor. No service locators, no `context.read` inside a cubit.
-- Create cubits with `BlocProvider` in the page. Never create a bloc or cubit inside `build` (for example with a `useBloc` hook).
+- Create cubits with `BlocProvider` in the page. Never create a bloc or cubit inside `build`.
 - Never emit after `close()`: guard async gaps with `if (isClosed) return;` or use `emit.forEach` / `restartable` handlers.
 
 ## One file per cubit/bloc

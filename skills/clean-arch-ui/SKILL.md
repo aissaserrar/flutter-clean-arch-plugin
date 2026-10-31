@@ -1,6 +1,6 @@
 ---
 name: clean-arch-ui
-description: Use when creating or editing Flutter pages and widgets in a feature (features/<feature>/presentation/ui): connecting widgets to Cubit/Bloc state with BlocBuilder/BlocListener/BlocSelector, providing cubits per page, handling presentation events, error and loading UI, localization, flutter_hooks for controllers, and design system usage.
+description: Use when creating or editing Flutter pages and widgets in a feature (features/<feature>/presentation/ui): connecting widgets to Cubit/Bloc state with BlocBuilder/BlocListener/BlocSelector, providing cubits per page, handling presentation events, error and loading UI, localization, and design system usage.
 ---
 
 # UI rules: pages and widgets
@@ -87,7 +87,7 @@ BlocPresentationListener<TransferCubit, TransferPresentationEvent>(
 
 ## Forms and input
 
-- Controllers, focus nodes, animation controllers and global keys are presentation state: manage them with `flutter_hooks` (or a `StatefulWidget`) and dispose them properly.
+- Controllers, focus nodes, animation controllers and global keys are presentation state: keep them in a `StatefulWidget`'s `State` and dispose them properly.
 - Forms follow `clean-arch-forms`. Validation rules that are business rules call a use case via the cubit; simple format checks may stay in the form.
 - Disable submit while loading; the cubit also guards against double submit.
 
@@ -107,7 +107,7 @@ BlocPresentationListener<TransferCubit, TransferPresentationEvent>(
 - [ ] Exhaustive `switch` on state; presentation events for side effects
 - [ ] All strings from l10n, all styles from design system, no direct `material`/`cupertino` widgets
 - [ ] Loading / error+retry / empty states present, using the shared patterns
-- [ ] Controllers via hooks and disposed
+- [ ] Controllers created in `State` and disposed
 - [ ] Widget test with a mocked cubit (see `clean-arch-testing`)
 
 ## Bundled files

@@ -241,7 +241,7 @@ Pages create their cubit with `BlocProvider(create: (c) => TransferCubit(c.read(
 
 `provider` is the default. Every provided dependency adds a widget to the tree, and Flutter has an implicit tree-depth limit, so an app with a very large number of global dependencies can hit a runtime stack overflow. For large projects choose the mechanism case by case (for example `provider` for page-scoped cubits plus a locator such as `get_it` for many global services). If the app already uses `get_it`, keep it, register only in the composition root, and keep passing dependencies through constructors (never call `getIt<X>()` inside cubits, use cases or repositories).
 
-Create values inside `create:` (not `Provider.value`), provide page-scoped cubits from the page, and never create a cubit in `build` with `useBloc`.
+Create values inside `create:` (not `Provider.value`), provide page-scoped cubits from the page with `BlocProvider`, and never create a cubit inside `build`.
 
 ## 8. Cross-feature sharing
 

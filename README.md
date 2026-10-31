@@ -43,7 +43,6 @@ The rules assume this stack. If yours differs, see [Customizing](#customizing).
 | Concern | Package |
 |---|---|
 | State management | `flutter_bloc`, `bloc_presentation` (one-off side effects), `bloc_test` for tests |
-| Presentation state | `flutter_hooks` (controllers, focus nodes) |
 | Navigation | `auto_route` or `go_router` (both documented) |
 | Dependency injection | `provider` (`get_it` for large apps, or where already used) |
 | Serialization | generated API contracts preferred, otherwise `json_serializable` |

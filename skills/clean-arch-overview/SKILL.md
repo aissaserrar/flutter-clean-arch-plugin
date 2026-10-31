@@ -55,7 +55,7 @@ Single-page feature with no layers: files may sit flat in the feature folder (`<
 - **Rule of three:** start in the feature that owns the code. Extract to `core/` only when at least **three** places reuse it. Shared code is costly to maintain and often is not as universal as it looks; accept some duplication before that.
 - `core/` holds **behavior and infrastructure** (`FeatureFlagBuilder`, formatters, http client, logging), never business-specific code.
 - **No reusable UI components in `core/`**: they go in `design_system/`.
-- Group files by function (`formatters/`, `hooks/`, `widgets/`), not by feature.
+- Group files by function (`formatters/`, `widgets/`), not by feature.
 - **All shared code is fully tested.** (This also discourages extracting it prematurely.)
 - Custom platform plugins (anything with native code) live in their own package, not in a feature, and do not use the federated-plugin layout.
 

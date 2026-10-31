@@ -21,7 +21,7 @@
 - [ ] Analytics ids on page and buttons (`clean-arch-observability`)
 
 ## Robustness
-- [ ] Controllers, focus nodes and animation controllers managed with hooks and disposed
+- [ ] Controllers, focus nodes and animation controllers created in `State` and disposed
 - [ ] Submit disabled while loading
 - [ ] Text scales: no fixed heights around text
 - [ ] Icon-only buttons have a tooltip or semantic label
