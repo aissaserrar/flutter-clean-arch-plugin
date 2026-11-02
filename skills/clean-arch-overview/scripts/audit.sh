@@ -105,6 +105,7 @@ add_viol() { # <rule> <feature> <grep -n output>
 }
 
 features_json=""
+untested_list=""
 if [ -d "$FEATURES" ]; then
   for feature_dir in "$FEATURES"/*/; do
     [ -d "$feature_dir" ] || continue
@@ -119,6 +120,7 @@ if [ -d "$FEATURES" ]; then
     f_pres="$([ -d "$fd/presentation" ] && fcount "$fd/presentation" || echo 0)"
     f_getx="$(grep -rE --include='*.dart' -e "$P_ALL" "$fd" 2>/dev/null | wc -l | tr -d ' ')"
     f_tests=false; [ -d "test/features/$feature" ] && f_tests=true
+    [ "$f_tests" = false ] && untested_list="${untested_list:+$untested_list, }$feature"
     f_bloc="$(grep -rlE --include='*.dart' "extends +(Hydrated)?(Cubit|Bloc)<" "$fd" 2>/dev/null | wc -l | tr -d ' ')"
     item="{\"name\":\"$(jstr "$feature")\",\"files\":$f_total,\"domain\":$f_domain,\"data\":$f_data,\"presentation\":$f_pres,\"getx_hits\":$f_getx,\"blocs\":$f_bloc,\"has_tests\":$f_tests}"
     features_json="${features_json:+$features_json,}$item"
@@ -200,6 +202,91 @@ if [ -n "$PREV" ]; then
   delta_json="{\"previous_generated_at\":\"$(jstr "$pgen")\",\"status\":{\"from\":\"$(jstr "$pstatus")\",\"to\":\"$status\"},\"metrics\":[$items]}"
 fi
 
+# ---- Directory structure (for the report illustration) ----
+grep "${GREP_DART[@]}" -c -e "$P_ALL" "$LIB" 2>/dev/null | sed -E 's/:([0-9]+)$/\t\1/' > "$TMP/getx_by_file"
+grep "${GREP_DART[@]}" -l -E "extends +(Hydrated)?(Cubit|Bloc)<" "$LIB" 2>/dev/null > "$TMP/bloc_list"
+awk -F'\t' -v g="$TMP/getx_by_file" -v b="$TMP/bloc_list" '
+  BEGIN { while ((getline l < g) > 0) { split(l, x, "\t"); cnt[x[1]] = x[2] + 0 }
+          while ((getline l < b) > 0) bl[l] = 1 }
+  { path = $0; n = split(path, a, "/"); pre = "lib"
+    for (i = 2; i <= n - 1 && i <= 5; i++) { pre = pre "/" a[i]; tot[pre]++; gx[pre] += cnt[path]; if (path in bl) bc[pre]++; if (i == n - 1) direct[pre]++ } }
+  END { for (k in tot) printf "%s\t%d\t%d\t%d\t%d\n", k, tot[k], gx[k] + 0, bc[k] + 0, direct[k] + 0 }
+' "$TMP/files" | sort > "$TMP/structure_all"
+structure_total="$(wc -l < "$TMP/structure_all" | tr -d ' ')"
+head -n 800 "$TMP/structure_all" > "$TMP/structure"
+structure_dirs="$(awk -F'\t' 'function q(s){gsub(/\\/,"/",s);gsub(/"/,"\047",s);return s}
+  { printf "%s{\"path\":\"%s\",\"files\":%d,\"getx\":%d,\"blocs\":%d,\"direct\":%d}", (NR>1?",":""), q($1), $2, $3, $4, $5 }' "$TMP/structure")"
+root_files="$(find "$LIB" -maxdepth 1 -name '*.dart' ! -name '*.g.dart' ! -name '*.gr.dart' ! -name '*.config.dart' ! -name 'app_localizations*.dart' 2>/dev/null | sort | sed 's#.*/##' | awk '{printf "%s\"%s\"", (NR>1?",":""), $0}')"
+
+# ---- Feature candidates inferred from legacy file names (stems such as home_controller, home_view) ----
+existing_features=""; [ -d "$FEATURES" ] && existing_features="$(ls "$FEATURES" 2>/dev/null | paste -sd, -)"
+grep -vE '^lib/(features|core|design_system|l10n|bootstrap|router)/|^lib/(main|app)\.dart$' "$TMP/files" | awk -v existing="$existing_features" '
+  BEGIN { n = split(existing, ex, ","); for (i = 1; i <= n; i++) have[ex[i]] = 1 }
+  { path = $0; base = path; sub(/.*\//, "", base); stem = ""; kind = "file"
+    if (match(base, /_(controller|view|page|screen|binding|bindings|bloc|cubit|repository|service|model|provider|state|widget|widgets|viewmodel)\.dart$/)) {
+      stem = substr(base, 1, RSTART - 1); kind = substr(base, RSTART + 1, RLENGTH - 6) }
+    else if (match(path, /\/(modules|pages|screens|views)\/[a-z0-9_]+\//)) {
+      seg = substr(path, RSTART + 1, RLENGTH - 2); sub(/^[a-z]+\//, "", seg); stem = seg }
+    if (stem == "" || length(stem) < 3 || stem ~ /^(app|base|common|main|my|utils|helpers|shared|widgets|core)$/) next
+    if (!((stem SUBSEP path) in seenf)) { seenf[stem SUBSEP path] = 1; cnt[stem]++ }
+    if (!((stem SUBSEP kind) in seenk)) { seenk[stem SUBSEP kind] = 1; kinds[stem] = kinds[stem] (kinds[stem] == "" ? "" : "|") kind } }
+  END { for (k in cnt) if (cnt[k] >= 2) printf "%d\t%s\t%s\t%d\n", cnt[k], k, kinds[k], (k in have) ? 1 : 0 }
+' | sort -t"$(printf '\t')" -k1,1nr -k2,2 | head -n 12 > "$TMP/sugg"
+suggested_json="$(awk -F'\t' '{ n = split($3, ks, "|"); l = ""; for (i = 1; i <= n; i++) l = l (i > 1 ? "," : "") "\"" ks[i] "\""
+  printf "%s{\"name\":\"%s\",\"files\":%d,\"kinds\":[%s],\"exists\":%s}", (NR>1?",":""), $2, $1, l, ($4 == 1 ? "true" : "false") }' "$TMP/sugg")"
+new_feats="$(awk -F'\t' '$4 == 0 { printf "%s%s (%d files)", (n++ ? ", " : ""), $2, $1 }' "$TMP/sugg")"
+first_new="$(awk -F'\t' '$4 == 0 { print $2; exit }' "$TMP/sugg")"
+n_new="$(awk -F'\t' '$4 == 0' "$TMP/sugg" | wc -l | tr -d ' ')"
+
+# ---- Next steps (one source of truth for the report and the terminal summary) ----
+steps=""; step_n=0
+add_step() { # id command title why
+  step_n=$((step_n + 1))
+  steps="${steps:+$steps,}{\"order\":$step_n,\"id\":\"$1\",\"command\":\"$(jstr "$2")\",\"title\":\"$(jstr "$3")\",\"why\":\"$(jstr "$4")\"}"
+}
+top_rule="$(grep -o '"rule":"[^"]*"' "$TMP/viol" 2>/dev/null | sort | uniq -c | sort -rn | head -n1 | sed -E 's/^ *[0-9]+ "rule":"(.*)"$/\1/')"
+router_state="no router package is installed yet"; { [ "$has_go_router" = true ] && router_state="go_router is installed"; } || { [ "$has_auto_route" = true ] && router_state="auto_route is installed"; }
+di_state="no DI package is installed yet"; [ "$has_get_it" = true ] && di_state="get_it is installed"; [ "$has_provider" = true ] && di_state="provider is installed"
+
+if [ "$error_count" -gt 0 ]; then
+  add_step fix-violations "check_dependencies.sh lib" "Fix the import-rule violations" "$error_count rule violation(s), most common: $top_rule. Fix them before moving more code, otherwise migration copies the problem."
+fi
+if [ "$legacy" = true ]; then
+  add_step pre-check "/pre-check ${first_new:-<feature>}" "Check it is safe to start" "Clean git tree, a flutter analyze baseline and the impact of the first target. Every editing command needs this."
+  if [ "$has_patrol" = false ]; then
+    add_step e2e "/e2e" "Optional: protect the critical flows first" "No Patrol tests yet. A few end-to-end flows catch behaviour changes the analyzer cannot see."
+  fi
+  if [ "$n_new" -gt 0 ]; then
+    add_step feature "/feature ${first_new} --migrate" "Move legacy files into lib/features/" "$n_new feature group(s) found outside lib/features: $new_feats. Originals stay in place, marked deprecated; imports are rewritten."
+  fi
+  if [ "$n_nav" -gt 0 ]; then
+    add_step route "/route" "Replace GetX navigation" "$n_nav GetX navigation usage(s) (Get.to, GetPage, GetMaterialApp...); $router_state. You choose go_router or auto_route. /kill-getx stops until this is done."
+  fi
+  if [ "$n_lookup" -gt 0 ]; then
+    add_step di "/di" "Replace Get.put / Get.find / Bindings" "$n_lookup GetX lookup(s); $di_state. You choose get_it (+ injectable) or provider."
+  fi
+  if [ $((n_controller + n_obx + n_obs)) -gt 0 ]; then
+    add_step kill-getx "/kill-getx" "Remove GetX controllers and reactive widgets" "$n_controller controller(s), $n_obx Obx/GetBuilder, $n_obs .obs. Once you trust it, --batches 3 --checkpoint runs several reviewed batches in a row."
+  fi
+  if { [ "$bloc_files" -eq 0 ] && { [ "$getx_total" -gt 0 ] || [ "$stateful" -gt 0 ]; }; } || [ "$provider_notifier" -gt 0 ]; then
+    add_step to-bloc "/to-bloc" "Convert state holders to Cubit/Bloc" "$bloc_files Cubit/Bloc file(s) today, $provider_notifier ChangeNotifier(s), $stateful StatefulWidget(s). Cubit by default, Bloc only where event transformers are needed."
+  fi
+fi
+if [ -n "$untested_list" ] || [ "$test_files" -eq 0 ]; then
+  if [ "$test_files" -eq 0 ]; then add_step tests "clean-arch-testing" "Add tests" "No test files found. Start with use cases and cubits (bloc_test)."
+  else add_step tests "clean-arch-testing" "Add tests for features without a test folder" "No test/features/<name> folder for: $untested_list."; fi
+fi
+if [ "$warning_count" -gt 0 ]; then
+  add_step warnings "(review)" "Review the style warnings" "$warning_count style warning(s) (for example part / part of outside generated code, widgets in core/)."
+fi
+if [ "$legacy" = false ] && [ "$has_patrol" = false ]; then
+  add_step e2e "/e2e" "Protect the critical flows" "No Patrol tests yet: add a few mock-backed end-to-end flows, including native permission and notification steps."
+fi
+if [ "$legacy" = false ] && [ "$error_count" -eq 0 ]; then
+  add_step ci "check_dependencies.sh lib" "Keep it compliant" "Run the dependency checker in CI so new code cannot break the layer rules."
+fi
+add_step reaudit "/audit" "Re-run the audit after each step" "The report shows the change since the previous audit, so you can see the migration progress."
+
 now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 project="$(basename "$(pwd)")"
 
@@ -229,6 +316,9 @@ cat <<JSON
     ]
   },
   "features": [${features_json}],
+  "structure": {"root_files": [${root_files}], "total_dirs": ${structure_total:-0}, "truncated": $([ "${structure_total:-0}" -gt 800 ] && echo true || echo false), "dirs": [${structure_dirs}]},
+  "suggested_features": [${suggested_json}],
+  "next_steps": [${steps}],
   "coverage": {
     "checked": ["domain purity", "presentation does not import data", "data does not import presentation", "no cross-feature imports", "core/design_system do not import features", "wiring only in *_providers.dart / *_di.dart", "no part/part of outside generated code", "no widgets in core/", "GetX usage", "BLoC/Cubit presence", "feature tests folder exists"],
     "not_checked": ["state class naming (Initial/Loading/Success/Failure)", "use case / repository shape per feature", "rule of three for core/", "UI error and loading patterns", "test quality and coverage"]

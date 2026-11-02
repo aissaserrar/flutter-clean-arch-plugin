@@ -120,6 +120,12 @@ for c in $COMMANDS; do
   esac
 done
 grep -q "audit.sh" commands/audit.md && grep -q 'PREV' commands/audit.md || bad "audit.md does not pass the previous audit for the delta"
+grep -q "next_steps" commands/audit.md || bad "audit.md does not print next_steps in the terminal summary"
+grep -q "d.next_steps" commands/templates/audit-report.html || bad "the report template does not render next_steps"
+grep -q "d.structure" commands/templates/audit-report.html || bad "the report template does not draw the architecture illustration"
+grep -q "<details" commands/templates/audit-report.html && grep -q "data-act" commands/templates/audit-report.html || bad "the report trees are not expandable (details / Expand all / Collapse all)"
+# every command the audit can recommend must exist
+for c in $(grep -oE 'add_step [a-z-]+ "/[a-z-]+' skills/clean-arch-overview/scripts/audit.sh | sed -E 's/.*"\///' | sort -u); do [ -f "commands/$c.md" ] || bad "audit.sh recommends /$c but commands/$c.md does not exist"; done
 
 if [ "$problems" -eq 0 ]; then echo "OK: commands and skills are consistent"; exit 0; fi
 echo; echo "$problems problem(s) found."; exit 1

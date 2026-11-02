@@ -52,6 +52,43 @@
   .empty { color: var(--muted); padding: 4px 0; }
   .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 0 6px 6px 0; }
   .pill.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .arch { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  @media (max-width: 860px) { .arch { grid-template-columns: 1fr; } }
+  .arch h3 { margin: 0 0 2px; font-size: 14px; }
+  .arch .cap { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .tree { font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); overflow-x: auto; }
+  .tree details, .tree .leaf { margin: 0; padding: 0; border: 0; }
+  .tree summary { cursor: pointer; list-style: none; display: flex; justify-content: flex-start; align-items: center; flex-wrap: wrap; gap: 2px 0; padding: 1px 4px; margin-left: -4px; border-radius: 5px; }
+  .tree summary::-webkit-details-marker { display: none; }
+  .tree summary::before { content: '\25B8'; color: var(--muted); display: inline-block; width: 1.1em; flex: none; }
+  .tree details[open] > summary::before { content: '\25BE'; }
+  .tree summary:hover { background: var(--bg); }
+  .tree summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tree .leaf { padding: 1px 0 1px 1.1em; display: flex; align-items: center; flex-wrap: wrap; }
+  .tree .kids { margin-left: 0.5em; padding-left: 0.7em; border-left: 1px solid var(--line); }
+  .tree .legacy { color: var(--warn); font-weight: 600; }
+  .tree .feat { color: var(--ok); font-weight: 600; }
+  .tree .shared { font-weight: 600; }
+  .tree .newc { color: var(--accent); font-weight: 600; }
+  .tree .file { color: var(--muted); }
+  .tools { display: flex; gap: 6px; margin: 0 0 8px; }
+  .tools button { font: inherit; font-size: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .tools button:hover { border-color: var(--accent); }
+  .tools button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tag { font: 11px/1 system-ui, sans-serif; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 6px; white-space: nowrap; }
+  .tag.gx { color: var(--bad); border-color: var(--bad); }
+  .tag.bl { color: var(--ok); border-color: var(--ok); }
+  .tag.nw { color: var(--accent); border-color: var(--accent); }
+  .tag.mg { color: var(--warn); border-color: var(--warn); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .legend i { font-style: normal; font-weight: 600; }
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  ol.steps li { display: flex; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  ol.steps .num { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 600; font-size: 13px; display: grid; place-items: center; }
+  ol.steps .st-title { font-weight: 600; }
+  ol.steps .st-why { color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+  code.cmd { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin-left: 6px; font-weight: 400; }
 </style>
 </head>
 <body>
@@ -101,6 +138,102 @@ __AUDIT_DATA__
       h += '<tr><td>' + esc(labels[m.name] || m.name) + '</td><td class="r">' + (m.from === null ? 'n/a' : m.from) + '</td><td class="r">' + m.to + '</td><td class="r">' + ch + '</td></tr>';
     });
     h += '</table></div>';
+  }
+
+  // Architecture illustration: today vs target (structure the plugin's skills prescribe)
+  (function () {
+    var SHARED = { bootstrap: 1, router: 1, core: 1, design_system: 1, l10n: 1 };
+    function node(name, cls, tags, kids) { return { name: name, cls: cls, tags: tags || '', kids: kids || [] }; }
+    function tag(txt, c) { return '<span class="tag ' + (c || '') + '">' + esc(txt) + '</span>'; }
+    function count(n) { return 1 + n.kids.reduce(function (a, k) { return a + count(k); }, 0); }
+    function row(n) { return '<span class="' + n.cls + '">' + esc(n.name) + '</span>' + n.tags; }
+    // Folders with children are <details>: native keyboard and click behaviour. Small trees open fully; large ones open two levels.
+    function html(n, depth, openAll) {
+      if (!n.kids.length) return '<div class="leaf">' + row(n) + '</div>';
+      // root always open; the next level opens unless it is crowded (more than 15 children, such as 30 features)
+      var open = (openAll || depth === 0 || (depth === 1 && n.kids.length <= 15)) ? ' open' : '';
+      return '<details' + open + '><summary>' + row(n) + '</summary><div class="kids">' + n.kids.map(function (k) { return html(k, depth + 1, openAll); }).join('') + '</div></details>';
+    }
+    function render(n) { return html(n, 0, count(n) <= 45); }
+
+    // ---- today: built from the real directories ----
+    var dirs = d.structure.dirs, byPath = {};
+    dirs.forEach(function (x) { byPath[x.path] = x; });
+    function kidsOf(path, depth, maxDepth) {
+      var pre = path + '/', seen = {}, names = [];
+      dirs.forEach(function (x) { if (x.path.indexOf(pre) === 0) { var rest = x.path.slice(pre.length); if (rest.indexOf('/') < 0 && !seen[rest]) { seen[rest] = 1; names.push(rest); } } });
+      names.sort();
+      return names.map(function (nm) {
+        var full = pre + nm, x = byPath[full], top = full.split('/')[1];
+        var cls = top === 'features' ? 'feat' : (SHARED[top] ? 'shared' : 'legacy');
+        var t = tag(x.files + (x.files === 1 ? ' file' : ' files'));
+        if (x.getx) t += tag('GetX ' + x.getx, 'gx');
+        if (x.blocs) t += tag(x.blocs + (x.blocs === 1 ? ' cubit/bloc' : ' cubits/blocs'), 'bl');
+        return node(nm + '/', cls, t, kidsOf(full, depth + 1, maxDepth));
+      });
+    }
+    var cur = node('lib/', 'shared', '', []);
+    d.structure.root_files.forEach(function (f) { cur.kids.push(node(f, 'file', '', [])); });
+    cur.kids = kidsOf('lib', 0, 5).concat(cur.kids);
+    // legacy first (that is where the work is), then features, shared folders, files
+    var order = { legacy: 0, feat: 1, shared: 2, file: 3 };
+    cur.kids.sort(function (a, b) { return (order[a.cls] - order[b.cls]) || (a.name < b.name ? -1 : 1); });
+
+    // ---- target: the skills' structure, filled with this project's names ----
+    var topExists = {};
+    dirs.forEach(function (x) { var p = x.path.split('/'); if (p.length === 2) topExists[p[1]] = true; });
+    function sharedNode(name, kids) { return node(name + '/', topExists[name] ? 'shared' : 'newc', topExists[name] ? tag('exists') : tag('create', 'nw'), kids || []); }
+    var diFile = (d.packages.get_it && !d.packages.provider) ? 'injection.dart' : 'global_providers.dart';
+    var wiring = (d.packages.get_it && !d.packages.provider) ? '_di.dart' : '_providers.dart';
+    var routerKids = [node('app_router.dart', 'file')];
+    if (d.packages.go_router) routerKids.push(node('route_tree.dart', 'file'), node('routes.dart', 'file'));
+    else if (d.packages.auto_route) routerKids.push(node('app_router.gr.dart (generated)', 'file'));
+    else routerKids.push(node('routes.dart (go_router or auto_route: /route asks)', 'file'));
+    var realCore = dirs.filter(function (x) { return x.path.indexOf('lib/core/') === 0 && x.path.split('/').length === 3; }).map(function (x) { return x.path.split('/')[2]; }).sort();
+    var coreKids = (realCore.length ? realCore : ['error', 'http', 'storage', 'logging']).map(function (n) { return node(n + '/', 'shared'); });
+    var tgt = node('lib/', 'shared', '', [
+      node('main.dart', 'file'), node('app.dart', 'file'),
+      sharedNode('bootstrap', [node('app_config.dart', 'file'), node(diFile, 'file')]),
+      sharedNode('router', routerKids),
+      sharedNode('core', coreKids),
+      sharedNode('design_system'),
+      sharedNode('l10n')
+    ]);
+    var existing = d.features.map(function (f) { return f.name; });
+    var fresh = d.suggested_features.filter(function (f) { return !f.exists; });
+    function featureTemplate(nm) {
+      return [
+        node(nm + '_ids.dart', 'file'),
+        node('domain/', 'shared', '', [node('entities/', 'shared'), node('repositories/', 'shared'), node('use_cases/', 'shared')]),
+        node('data/', 'shared', '', [node('dtos/', 'shared'), node('mappers/', 'shared'), node('sources/', 'shared'), node(nm + '_repository_impl.dart', 'file')]),
+        node('presentation/', 'shared', '', [node('cubit/', 'shared'), node('ui/', 'shared')]),
+        node(nm + '_routes.dart', 'file'), node(nm + wiring, 'file')
+      ];
+    }
+    var featKids = [], example = fresh.length ? fresh[0].name : (existing[0] || 'feature');
+    existing.forEach(function (nm) { featKids.push(node(nm + '/', 'feat', tag('exists') + (nm === example ? '' : ''), nm === example ? featureTemplate(nm) : [])); });
+    fresh.forEach(function (f) {
+      featKids.push(node(f.name + '/', 'newc', tag('migrate · ' + f.files + ' legacy files', 'mg') + tag('/feature ' + f.name + ' --migrate', 'nw'), f.name === example ? featureTemplate(f.name) : []));
+    });
+    if (!featKids.length) featKids.push(node('<feature>/', 'newc', tag('new', 'nw'), featureTemplate('<feature>')));
+    tgt.kids.push(node('features/', 'feat', '', featKids));
+    var legacyTop = d.legacy_top_dirs.map(function (x) { return x.dir + '/ (' + x.files + ')'; });
+
+    h += '<h2>Architecture: today and target</h2><div class="legend"><span><i class="legacy" style="color:var(--warn)">amber</i> legacy folder</span><span><i style="color:var(--ok)">green</i> feature</span><span><i style="color:var(--accent)">blue</i> to create or migrate</span><span><i>bold</i> shared folder</span></div>';
+    h += '<div class="arch"><div class="panel"><h3>Today</h3><div class="cap">Your real folders under <code>lib/</code>, with Dart file counts, GetX usages and Cubit/Bloc files. Click a folder to open or close it.</div><div class="tools"><button type="button" data-act="expand" data-target="tree-today">Expand all</button><button type="button" data-act="collapse" data-target="tree-today">Collapse all</button></div><div class="tree" id="tree-today">' + render(cur) + '</div>' + (d.structure.truncated ? '<div class="cap" style="margin-top:8px">Large project: showing the first 800 of ' + d.structure.total_dirs + ' folders.</div>' : '') + '</div>';
+    h += '<div class="panel"><h3>Target</h3><div class="cap">The structure the plugin\'s skills prescribe, with this project\'s names. One feature is expanded; the others use the same layout. Pick the smallest feature shape that fits: thin, with repository, or full domain.</div><div class="tools"><button type="button" data-act="expand" data-target="tree-target">Expand all</button><button type="button" data-act="collapse" data-target="tree-target">Collapse all</button></div><div class="tree" id="tree-target">' + render(tgt) + '</div>';
+    if (legacyTop.length) h += '<div class="cap" style="margin-top:10px">Removed once empty: <span class="legacy" style="color:var(--warn)">' + esc(legacyTop.join(', ')) + '</span></div>';
+    h += '</div></div>';
+  })();
+
+  // Suggested next steps
+  if (d.next_steps && d.next_steps.length) {
+    h += '<h2>Suggested next steps</h2><ol class="steps">';
+    d.next_steps.forEach(function (st) {
+      var chip = (st.command && st.command !== '(review)') ? ' <code class="cmd">' + esc(st.command) + '</code>' : '';
+      h += '<li><span class="num">' + st.order + '</span><div><div class="st-title">' + esc(st.title) + chip + '</div><div class="st-why">' + esc(st.why) + '</div></div></li>';
+    });
+    h += '</ol><div class="sub" style="margin-top:8px">Order follows the plugin\'s migration workflow. Run a step, then re-run <code>/audit</code> to see the progress.</div>';
   }
 
   // Layer distribution
@@ -165,6 +298,17 @@ __AUDIT_DATA__
   }
 
   app.innerHTML = h;
+  if (app.querySelectorAll) {
+    app.querySelectorAll('.tools button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var box = document.getElementById(b.getAttribute('data-target'));
+        if (!box) return;
+        var all = box.querySelectorAll('details');
+        if (b.getAttribute('data-act') === 'expand') { all.forEach(function (x) { x.open = true; }); }
+        else { all.forEach(function (x) { x.open = false; }); var first = box.querySelector('details'); if (first) first.open = true; }
+      });
+    });
+  }
   function card(n, l, cls) { return '<div class="card ' + (cls || '') + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>'; }
 })();
 </script>
