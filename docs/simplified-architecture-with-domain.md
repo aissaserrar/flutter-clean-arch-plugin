@@ -315,3 +315,12 @@ These are not repeated here; each has its own skill or reference:
 | Logging levels, analytics ids | `clean-arch-observability` |
 | Error, loading and connectivity UI patterns | `clean-arch-ui` (`references/error-and-loading-patterns.md`) |
 | When to use interfaces | `clean-arch-domain` (`references/when-to-use-interfaces.md`) |
+| Order and shared rules of the migration commands | `clean-arch-overview/references/migration-workflow.md` |
+| Project audit (layers, GetX leakage, import rules) | `/audit` command (`clean-arch-overview/scripts/audit.sh`) |
+| Safety dry-run before refactoring | `/pre-check` command (`clean-arch-overview/scripts/pre_check.sh`) |
+| Move legacy files of a feature into the structure | `/feature <name> --migrate` command (`clean-arch-new-feature/scripts/`) |
+| Remove GetX (interim form before Cubit) | `/kill-getx` command (`clean-arch-presentation/references/getx-migration.md`) |
+| Convert state holders to Cubit/Bloc | `/to-bloc` command (`clean-arch-presentation/references/notifier-to-cubit.md`) |
+| Replace GetX routing (go_router or auto_route) | `/route` command (`clean-arch-di-routing/references/getx-routing-migration.md`) |
+| Replace GetX DI (get_it + injectable or provider) | `/di` command (`clean-arch-di-routing/references/getx-di-migration.md`) |
+| End-to-end tests with Patrol | `/e2e` command (`clean-arch-testing/references/patrol.md`) |

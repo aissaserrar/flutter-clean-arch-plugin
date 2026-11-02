@@ -113,3 +113,7 @@ class TransferCubit extends Cubit<TransferState>
 ## Bundled files
 
 - `references/cubit-vs-bloc.md`: decision table, state design cheat sheet, lifecycle
+- `references/getx-migration.md`: GetX to interim form (ChangeNotifier + ListenableBuilder) to Cubit mapping, used by `/kill-getx` and `/to-bloc`
+- `scripts/kill_getx_scan.sh [root] [target ...]` and `scripts/kill_getx_finish.sh [--apply] [root] [target ...]`: GetX inventory per file, and removal of `package:get` imports from files that no longer use it (dry run by default)
+- `references/notifier-to-cubit.md`: ChangeNotifier to Cubit/Bloc and ListenableBuilder to BlocBuilder mapping, with a worked example; used by `/to-bloc`
+- `scripts/to_bloc_scan.sh [root] [target ...]`: finds ChangeNotifier/ValueNotifier/GetxController holders and the widgets that consume them, with suggested Cubit/Bloc names and paths

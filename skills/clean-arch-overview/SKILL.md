@@ -79,12 +79,20 @@ Single-page feature with no layers: files may sit flat in the feature folder (`<
 | Logging and analytics | `clean-arch-observability` |
 | Writing tests | `clean-arch-testing` |
 | Building a whole feature end to end | `clean-arch-new-feature` |
+| Moving a legacy GetX app onto this architecture | the migration commands, in the order in `references/migration-workflow.md` |
 
 When reviewing code, flag any import that violates the rules above before anything else.
+
+## Migrating a legacy GetX app
+
+The plugin has commands for this: `/audit`, `/pre-check`, `/feature <name> --migrate`, `/route`, `/di`, `/kill-getx`, `/to-bloc`, `/e2e`. They apply the rules of these skills, in the order and with the shared gates described in `references/migration-workflow.md`. During a migration, files marked `DEPRECATED: migrated by /feature --migrate` are frozen originals: do not edit them, and do not count them as part of the target architecture; delete them once nothing imports them.
 
 ## Bundled files
 
 - `references/folder-structure.md`: full tree, naming conventions, per-folder import map
+- `references/migration-workflow.md`: order of the migration commands, shared gates and conventions, which skill each command applies
 - `../clean-arch-domain/references/when-to-use-interfaces.md`: rule of thumb for interfaces vs concrete classes
 - `scripts/check_dependencies.sh [lib_dir]`: verifies the import rules above (exit 1 on violations). Run it after creating or moving files and before finishing a review:
   `bash ${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/scripts/check_dependencies.sh lib`
+- `scripts/audit.sh [project_root]`: full read-only audit as JSON (file distribution, GetX leakage, import rules via `check_dependencies.sh`, a few style checks). Used by the `/audit` command, which renders it as an HTML report.
+- `scripts/pre_check.sh [project_root] [target ...]`: read-only git state and impact metrics (files, LOC, GetX hits, dependents, test coverage) for a refactor target. Used by the `/pre-check` command, which adds `flutter analyze` and a GO / NO-GO verdict.

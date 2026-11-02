@@ -74,3 +74,6 @@ blocTest<TransferCubit, TransferState>(
 ## Bundled files
 
 - `references/test-checklist-by-layer.md`: what to cover per layer, conventions, commands
+- `references/patrol.md`: Patrol end-to-end rules, setup checklist and test shape, used by `/e2e`
+- `templates/patrol_flow_test.dart.tpl`, `templates/patrol_permission_test.dart.tpl`: skeletons for `patrol_test/`
+- `scripts/e2e_scan.sh`: read-only Patrol readiness report

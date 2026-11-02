@@ -103,3 +103,6 @@ See `references/go-router.md`: type-safe routes, route tree in its own file, pag
 - `references/go-router.md`: go_router rules and examples
 - `references/async-initialization.md`: resilient startup loader pattern
 - `references/cross-feature-navigation.md`: route-based vs interface-based navigation, sharing data between features
+- `references/getx-routing-migration.md`: GetX navigation to go_router or auto_route mapping, used by `/route`
+- `references/getx-di-migration.md`: GetX DI to get_it (+ injectable) or provider mapping, used by `/di`
+- `scripts/route_scan.sh` and `scripts/di_scan.sh`: read-only inventories of GetX routing and of the classes to register

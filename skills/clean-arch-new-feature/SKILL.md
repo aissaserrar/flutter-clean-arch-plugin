@@ -94,3 +94,4 @@ grep -rn "import .*/data/" lib/features/<feature>/presentation
 - `templates/domain.dart.tpl`, `data.dart.tpl`, `presentation.dart.tpl`, `wiring.dart.tpl`, `ids.dart.tpl`: skeletons with `{{feature}}`, `{{Feature}}`, `{{entity}}`, `{{Entity}}`, `{{app}}` placeholders. Each file contains several `// ===== path =====` sections: split them into the files named in the headers.
 - `references/feature-checklist.md`: definition of done
 - Dependency check: `bash ${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/scripts/check_dependencies.sh lib`
+- `scripts/feature_scan.sh <root> <name>` and `scripts/feature_apply.sh [--dry-run] [--keep-deprecated] <root> <plan.tsv>`: used by `/feature <name> --migrate` to bring legacy files into this structure (scan is read-only; apply copies files, marks the originals deprecated and rewrites imports, after user confirmation)

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clean Architecture audit</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #fff; --text: #1b1d1f; --muted: #6a7075; --line: #e3e4e1;
+    --ok: #1a7f4b; --warn: #b26a00; --bad: #c0392b; --accent: #2457c5;
+    --ok-bg: #e6f4ec; --warn-bg: #fdf0dc; --bad-bg: #fbe7e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141516; --surface: #1d1f21; --text: #ecedee; --muted: #9aa0a6; --line: #2f3235;
+      --ok: #4cc38a; --warn: #f0b24a; --bad: #ff7b6b; --accent: #7da2ff;
+      --ok-bg: #16301f; --warn-bg: #3a2a10; --bad-bg: #3d1b17;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 36px 0 12px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card .n { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .card .l { color: var(--muted); font-size: 13px; }
+  .card.warn .n { color: var(--warn); } .card.bad .n { color: var(--bad); } .card.ok .n { color: var(--ok); }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr 48px; gap: 12px; align-items: center; margin: 6px 0; font-size: 14px; }
+  .bar { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  .bar > i.bad { background: var(--warn); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+  code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  details { border-bottom: 1px solid var(--line); padding: 8px 0; }
+  details:last-child { border-bottom: 0; }
+  summary { cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+  summary .c { font-variant-numeric: tabular-nums; font-weight: 600; }
+  ul.hits { margin: 8px 0 4px; padding-left: 18px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 4px 0; }
+  .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); margin: 0 6px 6px 0; }
+  .pill.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script id="data" type="application/json">
+__AUDIT_DATA__
+</script>
+<script>
+(function () {
+  var d = JSON.parse(document.getElementById('data').textContent);
+  var app = document.getElementById('app');
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  var status = {
+    compliant:       { cls: 'ok',   text: 'Compliant' },
+    compliant_with_warnings: { cls: 'ok', text: 'Compliant, with style warnings' },
+    needs_migration: { cls: 'warn', text: 'Needs migration to BLoC' },
+    non_compliant:   { cls: 'bad',  text: 'Not compliant' }
+  }[d.status] || { cls: 'bad', text: d.status };
+
+  var h = '';
+  h += '<header><div><h1>Clean Architecture audit</h1><div class="sub">' + esc(d.project) + ' &middot; ' + esc(d.generated_at) + '</div></div>';
+  h += '<span class="badge ' + status.cls + '">' + esc(status.text) + '</span></header>';
+
+  h += '<div class="cards">';
+  h += card(d.totals.dart_files, 'Dart files in lib/');
+  h += card(d.totals.features, 'Features', d.structure_ok ? '' : 'bad');
+  h += card(d.getx.total, 'GetX usages', d.getx.total ? 'bad' : 'ok');
+  h += card(d.violations.errors, 'Rule violations', d.violations.errors ? 'bad' : 'ok');
+  h += card(d.violations.warnings, 'Style warnings', d.violations.warnings ? 'warn' : 'ok');
+  h += card(d.state_management.bloc_files, 'Cubit / Bloc files', d.state_management.bloc_files ? 'ok' : 'bad');
+  h += card(d.totals.test_files, 'Test files');
+  h += '</div>';
+
+  if (!d.structure_ok) {
+    h += '<h2>Structure</h2><div class="panel">No <code>lib/features/</code> directory. The project is not organised feature-first yet.</div>';
+  }
+
+  // Progress since the previous audit
+  if (d.delta) {
+    var labels = { dart_files: 'Dart files', test_files: 'Test files', getx_usages: 'GetX usages', files_importing_get: 'Files importing get', violation_errors: 'Rule violations', violation_warnings: 'Style warnings', bloc_files: 'Cubit / Bloc files', stateful_widgets: 'StatefulWidgets' };
+    var good = { getx_usages: -1, files_importing_get: -1, violation_errors: -1, violation_warnings: -1, bloc_files: 1, test_files: 1 };
+    h += '<h2>Since the previous audit</h2><div class="panel"><div class="sub" style="margin-bottom:8px">Previous: ' + esc(d.delta.previous_generated_at) + (d.delta.status.from !== d.delta.status.to ? ' &middot; status ' + esc(d.delta.status.from) + ' &rarr; ' + esc(d.delta.status.to) : '') + '</div><table><tr><th>Metric</th><th class="r">Before</th><th class="r">Now</th><th class="r">Change</th></tr>';
+    d.delta.metrics.forEach(function (m) {
+      var ch = m.change === null ? '<span class="sub">n/a</span>' : (m.change === 0 ? '&ndash;' : '<span style="color:var(--' + (good[m.name] && (m.change * good[m.name] > 0) ? 'ok' : (good[m.name] ? 'bad' : 'muted')) + ')">' + (m.change > 0 ? '+' : '') + m.change + '</span>');
+      h += '<tr><td>' + esc(labels[m.name] || m.name) + '</td><td class="r">' + (m.from === null ? 'n/a' : m.from) + '</td><td class="r">' + m.to + '</td><td class="r">' + ch + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+
+  // Layer distribution
+  var names = { domain: 'domain', data: 'data', presentation: 'presentation', feature_root: 'feature root', core: 'core', design_system: 'design system', l10n: 'l10n', bootstrap: 'bootstrap', router: 'router', root: 'lib root', other: 'outside features/' };
+  var max = Math.max.apply(null, Object.keys(d.layers).map(function (k) { return d.layers[k]; }).concat([1]));
+  h += '<h2>File distribution</h2><div class="panel">';
+  Object.keys(names).forEach(function (k) {
+    var v = d.layers[k] || 0;
+    if (!v && k !== 'domain' && k !== 'data' && k !== 'presentation') return;
+    h += '<div class="bar-row"><span>' + names[k] + '</span><div class="bar"><i class="' + (k === 'other' ? 'bad' : '') + '" style="width:' + (v / max * 100) + '%"></i></div><span class="num">' + v + '</span></div>';
+  });
+  if (d.legacy_top_dirs.length) {
+    h += '<div class="sub" style="margin-top:10px">Legacy folders outside <code>features/</code>: ' + d.legacy_top_dirs.map(function (x) { return '<code>' + esc(x.dir) + '/</code> (' + x.files + ')'; }).join(', ') + '</div>';
+  }
+  h += '</div>';
+
+  // GetX leakage
+  h += '<h2>GetX leakage</h2><div class="panel">';
+  if (!d.getx.total) h += '<div class="empty">No GetX usage found.</div>';
+  d.getx.categories.forEach(function (c) {
+    if (!c.count) return;
+    h += '<details><summary><span>' + esc(c.label) + '</span><span class="c">' + c.count + '</span></summary><ul class="hits">';
+    c.hits.forEach(function (x) { h += '<li><code>' + esc(x.file) + ':' + x.line + '</code></li>'; });
+    if (c.count > c.hits.length) h += '<li>&hellip; and ' + (c.count - c.hits.length) + ' more</li>';
+    h += '</ul></details>';
+  });
+  h += '</div>';
+
+  // Violations
+  h += '<h2>Violations and warnings</h2><div class="panel">';
+  if (!d.violations.count) h += '<div class="empty">No violations or warnings.</div>';
+  else {
+    h += '<table><tr><th>Severity</th><th>Rule</th><th>Feature</th><th>Location</th></tr>';
+    d.violations.items.forEach(function (v) { h += '<tr><td><span class="badge ' + (v.severity === 'error' ? 'bad' : 'warn') + '" style="font-size:12px;padding:1px 8px">' + esc(v.severity) + '</span></td><td>' + esc(v.rule) + '</td><td>' + esc(v.feature) + '</td><td><code>' + esc(v.file) + ':' + v.line + '</code></td></tr>'; });
+    h += '</table>';
+  }
+  h += '</div>';
+
+  // Features
+  if (d.features.length) {
+    h += '<h2>Features</h2><div class="panel"><table><tr><th>Feature</th><th class="r">Files</th><th class="r">Domain</th><th class="r">Data</th><th class="r">Presentation</th><th class="r">Blocs</th><th class="r">GetX</th><th class="r">Tests</th></tr>';
+    d.features.forEach(function (f) {
+      h += '<tr><td>' + esc(f.name) + '</td><td class="r">' + f.files + '</td><td class="r">' + f.domain + '</td><td class="r">' + f.data + '</td><td class="r">' + f.presentation + '</td><td class="r">' + f.blocs + '</td><td class="r">' + (f.getx_hits || '&ndash;') + '</td><td class="r">' + (f.has_tests ? 'yes' : '<span style="color:var(--warn)">none</span>') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+
+  // State management & packages
+  var s = d.state_management;
+  h += '<h2>State management &amp; packages</h2><div class="panel">';
+  h += '<p style="margin-top:0">StatefulWidgets: <b>' + s.stateful_widgets + '</b> &middot; setState calls: <b>' + s.set_state_calls + '</b> &middot; ChangeNotifiers: <b>' + s.change_notifiers + '</b></p>';
+  Object.keys(d.packages).forEach(function (k) { h += '<span class="pill' + (d.packages[k] ? ' on' : '') + '">' + k + '</span>'; });
+  h += '</div>';
+
+  if (d.coverage) {
+    h += '<h2>What this audit covers</h2><div class="panel"><p style="margin-top:0"><b>Checked</b></p>' + d.coverage.checked.map(function (x) { return '<span class="pill on">' + esc(x) + '</span>'; }).join('');
+    h += '<p><b>Not checked</b> (review manually or ask Claude)</p>' + d.coverage.not_checked.map(function (x) { return '<span class="pill">' + esc(x) + '</span>'; }).join('') + '</div>';
+  }
+
+  if (d.migration_prompt) {
+    h += '<h2>Next step</h2><div class="panel">Legacy state management detected with no BLoC architecture found. Return to Claude Code to choose whether to migrate this project to BLoC.</div>';
+  }
+
+  app.innerHTML = h;
+  function card(n, l, cls) { return '<div class="card ' + (cls || '') + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>'; }
+})();
+</script>
+</body>
+</html>

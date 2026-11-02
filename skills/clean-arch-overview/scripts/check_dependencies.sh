@@ -23,7 +23,7 @@ for feature_dir in "$FEATURES"/*/; do
 
   # 1. domain must be pure Dart
   if [ -d "$feature_dir/domain" ]; then
-    out="$(grep -rnE "^import 'package:(flutter|flutter_bloc|bloc|dio|http|json_annotation|shared_preferences|auto_route|provider)[/:]|^import '.*/(data|presentation)/" "$feature_dir/domain" 2>/dev/null)"
+    out="$(grep -rnE "^import 'package:(flutter|flutter_bloc|bloc|dio|http|json_annotation|shared_preferences|auto_route|go_router|provider|get)[/:]|^import '.*/(data|presentation)/" "$feature_dir/domain" 2>/dev/null)"
     report "[$feature] domain imports Flutter/IO packages or data/presentation" "$out"
   fi
 
