@@ -8,11 +8,15 @@
 # Converting controllers to cubits, renaming classes etc. is done by other commands.
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ROOT="${1:-.}"; NAME="${2:-}"
 [ -n "$NAME" ] || { echo "Usage: feature_scan.sh <project_root> <feature_name>" >&2; exit 2; }
 case "$NAME" in *[!a-z0-9_]*|"") echo "Feature name must be snake_case (a-z, 0-9, _)" >&2; exit 2 ;; esac
 cd "$ROOT" 2>/dev/null || { echo "Cannot enter $ROOT" >&2; exit 2; }
 [ -d lib ] || { echo "No lib/ directory found in $ROOT" >&2; exit 2; }
+. "$SCRIPT_DIR/../../clean-arch-overview/scripts/detect.sh"
+detect_bases
 
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t featscan)"
 trap 'rm -rf "$TMP"' EXIT
@@ -43,7 +47,7 @@ while IFS= read -r f; do
   fi
 
   layer=""; sub=""; conf="medium"; why=""
-  if grep -qE "extends +(GetxController|GetxService|Cubit<|Bloc<|HydratedCubit<|HydratedBloc<|ChangeNotifier)" "$f"; then
+  if grep -qE "extends +($GETX_BASES|$CUBIT_BASES|ChangeNotifier)( *<|[ {]|\$)" "$f"; then
     layer="presentation"; sub="presentation/cubit"; conf="high"; why="state holder (controller / cubit / bloc / notifier)"
   elif grep -qE "extends +(StatelessWidget|StatefulWidget|GetView<|GetWidget<|ConsumerWidget)" "$f" || echo "$base" | grep -qE "_(page|view|screen|widget|widgets|dialog|sheet)\.dart$"; then
     layer="presentation"; sub="presentation/ui"; conf="high"; why="widget / page"

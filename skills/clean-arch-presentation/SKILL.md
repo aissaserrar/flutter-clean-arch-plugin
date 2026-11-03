@@ -10,6 +10,7 @@ Cubits and Blocs hold screen state and translate user actions into calls to the 
 ## Hard rules
 
 - Depend on what the feature shape provides (see `clean-arch-overview`): **use cases** (full feature), the **repository interface** (feature with a repository), or the **typed API client** from `core/` (thin feature). Never import `data/` internals (DTOs, data sources, repository implementations).
+- Extend **`Cubit`** or **`Bloc`** from `package:flutter_bloc` (or `bloc`). Do **not** extend project helpers such as `DataCubit`, `BaseCubit`, or `PaginatedCubit` — `/audit` warns on those; express loading/pagination in sealed state instead.
 - No `BuildContext` in any form, no `Navigator`/router calls, no `ScaffoldMessenger`, no `Widget` types.
 - One-off side effects (navigate, dialog, snackbar) use **`bloc_presentation`** presentation events, handled in the UI. State is for data the screen renders, not for events.
 - No business rules (money limits, fee math): those belong in use cases.
@@ -113,7 +114,7 @@ class TransferCubit extends Cubit<TransferState>
 ## Bundled files
 
 - `references/cubit-vs-bloc.md`: decision table, state design cheat sheet, lifecycle
-- `references/getx-migration.md`: GetX to interim form (ChangeNotifier + ListenableBuilder) to Cubit mapping, used by `/kill-getx` and `/to-bloc`
+- `references/getx-migration.md`: GetX to interim form (ChangeNotifier + ListenableBuilder), plus Direct mode (GetX → Cubit/Bloc with no interim); used by `/kill-getx` and `/to-bloc`
 - `scripts/kill_getx_scan.sh [root] [target ...]` and `scripts/kill_getx_finish.sh [--apply] [root] [target ...]`: GetX inventory per file, and removal of `package:get` imports from files that no longer use it (dry run by default)
 - `references/notifier-to-cubit.md`: ChangeNotifier to Cubit/Bloc and ListenableBuilder to BlocBuilder mapping, with a worked example; used by `/to-bloc`
 - `scripts/to_bloc_scan.sh [root] [target ...]`: finds ChangeNotifier/ValueNotifier/GetxController holders and the widgets that consume them, with suggested Cubit/Bloc names and paths

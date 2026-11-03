@@ -45,8 +45,8 @@ for feature_dir in "$FEATURES"/*/; do
   report "[$feature] imports another feature" "$out"
 done
 
-# 5. core and design_system must not import features
-for shared in core design_system; do
+# 5. core/common and design_system must not import features
+for shared in core common design_system; do
   if [ -d "$LIB/$shared" ]; then
     out="$(grep -rnE "^import '.*/features/" "$LIB/$shared" 2>/dev/null)"
     report "[$shared] imports features" "$out"

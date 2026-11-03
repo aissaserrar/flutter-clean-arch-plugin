@@ -6,9 +6,13 @@
 # Exit code 0 = data produced, 2 = no lib/ directory.
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ROOT="${1:-.}"; [ $# -gt 0 ] && shift
 cd "$ROOT" 2>/dev/null || { echo "Cannot enter $ROOT" >&2; exit 2; }
 [ -d lib ] || { echo "No lib/ directory found in $ROOT" >&2; exit 2; }
+. "$SCRIPT_DIR/../../clean-arch-overview/scripts/detect.sh"
+detect_bases
 
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t precheck)"
 trap 'rm -rf "$TMP"' EXIT
@@ -20,6 +24,7 @@ GEN=(! -name '*.g.dart' ! -name '*.freezed.dart' ! -name '*.gr.dart' ! -name '*.
 : > "$TMP/targets"; : > "$TMP/unresolved"
 if [ $# -eq 0 ]; then set -- lib; fi
 for t in "$@"; do
+  case "$t" in */*|*.dart) ;; *) if u="$(resolve_target "$t")"; then printf '%s\n' "$u" >> "$TMP/targets"; continue; fi ;; esac
   if [ -d "lib/features/$t" ]; then p="lib/features/$t"
   elif [ -e "$t" ]; then p="$t"
   elif [ -e "lib/$t" ]; then p="lib/$t"
@@ -53,11 +58,11 @@ fi
 loc=0; [ -s "$TMP/targets" ] && loc="$(xargs cat < "$TMP/targets" 2>/dev/null | wc -l | tr -d ' ')"
 
 NB='(^|[^A-Za-z0-9_])'
-P_GETX="import +['\"]package:get/|${NB}(GetxController|GetxService|Obx|GetBuilder)([^A-Za-z0-9_]|\$)|\\.obs([^A-Za-z0-9_]|\$)|${NB}Get\\.[a-zA-Z]+"
+P_GETX="$RE_GX_PREFILTER|$RE_GETX"
 getx_hits=0; bloc_files=0; stateful=0
 if [ -s "$TMP/targets" ]; then
   getx_hits="$(xargs grep -hE "$P_GETX" < "$TMP/targets" 2>/dev/null | wc -l | tr -d ' ')"
-  bloc_files="$(xargs grep -lE "extends +(Hydrated)?(Cubit|Bloc)<" < "$TMP/targets" 2>/dev/null | wc -l | tr -d ' ')"
+  bloc_files="$(xargs grep -lE "$RE_CUBIT" < "$TMP/targets" 2>/dev/null | wc -l | tr -d ' ')"
   stateful="$(xargs grep -hE "extends +StatefulWidget" < "$TMP/targets" 2>/dev/null | wc -l | tr -d ' ')"
 fi
 

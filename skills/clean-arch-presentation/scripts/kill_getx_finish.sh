@@ -31,7 +31,7 @@ sort -u "$TMP/files" -o "$TMP/files"
 
 NB='(^|[^A-Za-z0-9_])'
 IMPORT_LINE="^[[:space:]]*(import|export)[[:space:]]+['\"]package:get/[^'\"]*['\"][^;]*;[[:space:]]*\$"
-SYMS="${NB}(Get\\.|GetxController|GetxService|GetLifeCycle|GetBuilder|GetX[<(]|GetView|GetWidget|GetResponsiveView|GetMaterialApp|GetCupertinoApp|GetPage|GetMiddleware|GetConnect|GetUtils|GetPlatform|Obx|ObxValue|Rx[A-Za-z]*[<(]|Bindings|BindingsBuilder|Translations|Transition|SnackPosition|SnackbarStatus|GetSnackBar|Inst[^a-z])|\\.obs([^A-Za-z0-9_]|\$)|\\.(tr|trParams|trArgs|capitalizeFirst|capitalize|isBlank|isNullOrBlank|isNum|isEmail|isURL|isPhoneNumber|removeAllWhitespace|camelCase|paramCase|numericOnly|isNull|isNotNull|printInfo|printError)([^A-Za-z0-9_]|\$)|[0-9]\\.(seconds|milliseconds|microseconds|minutes|hours|days)([^A-Za-z0-9_]|\$)|${NB}(ever|once|debounce|interval|everAll)\\("
+SYMS="$RE_GX_PREFILTER|$RE_GX_EXT_BROAD|$RE_GETX|$RE_GX_NAV|$RE_GX_DI|$RE_GX_UI|$RE_GX_WIDGETS|$RE_GX_REACTIVE|$RE_GX_WORKERS"   # from the GetX catalog in detect.sh
 
 : > "$TMP/removable"; : > "$TMP/still"; skipped=0
 while IFS= read -r f; do

@@ -7,16 +7,24 @@ The migration commands (`/audit`, `/pre-check`, `/feature --migrate`, `/route`, 
 | # | Command | Why here |
 |---|---|---|
 | 0 | `/audit` | See where the project stands; re-run after every later step |
-| 1 | `/pre-check <target>` | Clean git tree, analyzer baseline, impact of the target |
-| 1b | `/e2e` (optional, early) | A few Patrol flows as a safety net before the big changes |
-| 2 | `/feature <name> --migrate` | Structure first: legacy files copied into `lib/features/<name>/`, originals marked deprecated |
-| 3 | `/route` | `kill-getx` stops while GetX navigation is still the app's router |
-| 4 | `/di` | Replaces `Get.put/find/Bindings`, so the `get` import can finally go |
-| 5 | `/kill-getx` | Controllers, `.obs`, `Obx`/`GetBuilder`/`GetView` to plain Flutter (the interim form) |
-| 6 | `/to-bloc` | The interim form to Cubit/Bloc with sealed states |
-| 7 | Tests, `/e2e` | `bloc_test`/widget tests per `clean-arch-testing`, then Patrol flows |
+| 1 | `/foundation` | Scaffold `bootstrap/`, `core/error` (`Result` + `AppFailure`), `design_system/`; optional `--migrate-ds` to copy widgets/themes into `design_system/`; optional router stub. Clears structure/error blockers before moving features |
+| 2 | `/pre-check <target>` | Clean git tree, analyzer baseline, impact of the target |
+| 2b | `/e2e` (optional, early) | A few Patrol flows as a safety net before the big changes |
+| 3 | `/feature <name> --migrate` | Structure first: legacy files copied into `lib/features/<name>/`, originals marked deprecated |
+| 4 | `/route` | Needed when leaving GetX navigation; skip while scope is state-only / GetMaterialApp kept |
+| 5 | `/di` | Replaces `Get.put/find/Bindings`, so the `get` import can finally go |
+| 6 | `/kill-getx` | Controllers, `.obs`, `Obx`/`GetBuilder`/`GetView` to plain Flutter (the interim form) |
+| 7 | `/to-bloc` | Direct: GetX → Cubit/Bloc; interim: ChangeNotifier → Cubit/Bloc |
+| 8 | Tests, `/e2e` | `bloc_test`/widget tests per `clean-arch-testing`, then Patrol flows |
 
 Each command's final report names the next command from this table, not its own list. Commands may be skipped when they do not apply (a project already on go_router skips `/route`).
+
+## Two ways to get from GetX to Cubit, and the config file
+
+- **Direct** (default): `/to-bloc` converts a GetX controller straight to a Cubit, designed from the controller's intent, so each file is rewritten once. `/kill-getx` then redirects to `/to-bloc` for controllers and is used only for leftovers (widgets, extensions, imports).
+- **Interim** (only when the user asks for it): `/kill-getx` to plain Flutter (`ChangeNotifier`), then `/to-bloc`. It rewrites every controller twice, so the Cubit inherits the controller's shape; avoid it unless the project cannot take a big-bang change.
+
+`/audit` asks the scope (`state` or `full`), the mode (`direct` or `interim`) and whether files move into `lib/features/` once, and saves them in `.clean-arch/config.json`. **A project's own conventions** (`CLAUDE.md`, `AGENTS.md`, `.claude/skills/`) **override the generic rules** of this plugin; the command says which ones it overrides. A feature can be targeted by the unit name shown in the audit plan. `/migrate` runs this whole workflow feature by feature.
 
 ## Shared gates (mutating commands)
 
@@ -79,6 +87,7 @@ Conditions 4 and 5 are checked by a script, not by eye: write the paths the plan
 | Command | Skills it applies |
 |---|---|
 | `/audit` | `clean-arch-overview` (dependency rules, folder structure) |
+| `/foundation` | `clean-arch-overview` (folders), `clean-arch-domain` (`Result` / `AppFailure`) |
 | `/pre-check` | `clean-arch-overview` |
 | `/feature --migrate` | `clean-arch-overview` (folders), `clean-arch-domain`, `clean-arch-data`, `clean-arch-presentation` (where each file goes) |
 | `/route` | `clean-arch-di-routing` (`go-router.md`, auto_route section), `clean-arch-ui` (page provides its cubit) |

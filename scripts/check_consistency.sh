@@ -15,6 +15,7 @@
 #   9  every SKILL.md `name` matches its folder
 #  10  the order of next steps in commands matches migration-workflow.md
 #  11  the batch loop exists only in /kill-getx and /to-bloc, is defined once, and keeps its git exception explicit
+#  12  scanners find Cubit/Bloc/GetX classes through detect.sh (custom base classes), never by hard-coded names
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,8 +23,8 @@ cd "$ROOT" || exit 1
 problems=0
 bad() { echo "PROBLEM: $*"; problems=$((problems + 1)); }
 
-COMMANDS="audit pre-check feature route di kill-getx to-bloc e2e"
-MUTATING="feature route di kill-getx to-bloc e2e"
+COMMANDS="audit pre-check feature route di kill-getx to-bloc e2e migrate"
+MUTATING="feature route di kill-getx to-bloc e2e migrate"
 
 # 1. frontmatter
 for f in commands/*.md; do
@@ -72,12 +73,16 @@ grep -inE "not available yet|may not exist|if available|do not invent ones|exist
 if [ -s /tmp/cc_stale.$$ ]; then cat /tmp/cc_stale.$$; problems=$((problems + $(wc -l < /tmp/cc_stale.$$))); fi
 rm -f /tmp/cc_stale.$$
 
+# 6b. the progress helper behind /migrate still behaves
+bash skills/clean-arch-migrate/scripts/test_migrate_state.sh >/dev/null 2>&1 || bad "skills/clean-arch-migrate/scripts/test_migrate_state.sh fails"
+for sh in conventions_scan migration_plan detect; do [ -f "skills/clean-arch-overview/scripts/$sh.sh" ] || bad "missing skills/clean-arch-overview/scripts/$sh.sh"; done
+
 # 7. README coverage
 for c in $COMMANDS; do grep -q "/flutter-clean-arch:$c" README.md || bad "README has no row for /$c"; done
 for skill in skills/*/; do n="$(basename "$skill")"; grep -q "\`$n\`" README.md || bad "README does not mention skill $n"; done
 
 # 8. unknown /commands
-KNOWN="audit pre-check feature route di kill-getx to-bloc e2e plugin reload-plugins"
+KNOWN="audit pre-check feature route di kill-getx to-bloc e2e migrate plugin reload-plugins"
 grep -rhoE '(^|[ (|])`/[a-z][a-z0-9-]*[ `:]' commands skills README.md docs 2>/dev/null | sed -E 's/^[ (|]?`\///; s/[ `:]$//' | sort -u | while IFS= read -r w; do
   [ "$w" = "flutter-clean-arch" ] && continue     # namespace prefix: the command after the colon is checked in 7
   case " $KNOWN " in *" $w "*) ;; *) echo "PROBLEM: unknown command mentioned: /$w" ;; esac
@@ -116,6 +121,7 @@ for c in $COMMANDS; do
       grep -q "Batch loop" "commands/$c.md" || bad "commands/$c.md does not point to the Batch loop section"
       grep -q -- "--checkpoint" "commands/$c.md" && grep -q "only exception is the \`--checkpoint\`" "commands/$c.md" || bad "commands/$c.md: its git rule must name the --checkpoint exception"
       ;;
+    migrate) case "$hint" in *--batches*) bad "commands/migrate.md: --batches belongs to /kill-getx and /to-bloc only" ;; esac ;;   # migrate passes --checkpoint through
     *) case "$hint" in *--batches*|*--checkpoint*) bad "commands/$c.md: only /kill-getx and /to-bloc have a batch loop" ;; esac ;;
   esac
 done
@@ -123,9 +129,25 @@ grep -q "audit.sh" commands/audit.md && grep -q 'PREV' commands/audit.md || bad 
 grep -q "next_steps" commands/audit.md || bad "audit.md does not print next_steps in the terminal summary"
 grep -q "d.next_steps" commands/templates/audit-report.html || bad "the report template does not render next_steps"
 grep -q "d.structure" commands/templates/audit-report.html || bad "the report template does not draw the architecture illustration"
+grep -qE "d\.engineering|eng\.checks" commands/templates/audit-report.html || bad "the report template does not render engineering checks"
+grep -q "engineering_scan.sh" skills/clean-arch-overview/scripts/audit.sh || bad "audit.sh does not call engineering_scan.sh"
+[ -x skills/clean-arch-overview/scripts/engineering_scan.sh ] || bad "engineering_scan.sh missing or not executable"
+grep -q "template_compliance_scan.sh" skills/clean-arch-overview/scripts/audit.sh || bad "audit.sh does not call template_compliance_scan.sh"
+[ -x skills/clean-arch-overview/scripts/template_compliance_scan.sh ] || bad "template_compliance_scan.sh missing or not executable"
+grep -qE "d\.template|tmpl\.(score|gaps)" commands/templates/audit-report.html || bad "the report template does not render template distance"
 grep -q "<details" commands/templates/audit-report.html && grep -q "data-act" commands/templates/audit-report.html || bad "the report trees are not expandable (details / Expand all / Collapse all)"
 # every command the audit can recommend must exist
 for c in $(grep -oE 'add_step [a-z-]+ "/[a-z-]+' skills/clean-arch-overview/scripts/audit.sh | sed -E 's/.*"\///' | sort -u); do [ -f "commands/$c.md" ] || bad "audit.sh recommends /$c but commands/$c.md does not exist"; done
+
+# 12. state classes are detected through the shared helper (custom base classes such as BaseCubit / GetxFormController)
+for sh in skills/*/scripts/*.sh; do
+  case "$sh" in */detect.sh) continue ;; esac
+  if grep -nE 'extends \+\((Hydrated\)\?\()?(Cubit|Bloc)|extends \+\(GetxController|extends \+\(ChangeNotifier\|ValueNotifier\|GetxController|extends \+\(Cubit<' "$sh" >/dev/null 2>&1; then
+    bad "$sh hard-codes Cubit/Bloc/GetxController class names: use RE_CUBIT / RE_GETX from detect.sh so custom base classes are found"
+  fi
+  if grep -qE 'RE_CUBIT|RE_GETX|CUBIT_BASES|GETX_BASES' "$sh" && ! grep -q 'detect.sh' "$sh"; then bad "$sh uses the detection variables but does not source detect.sh"; fi
+done
+[ -x skills/clean-arch-overview/scripts/detect.sh ] || bad "skills/clean-arch-overview/scripts/detect.sh is missing or not executable"
 
 if [ "$problems" -eq 0 ]; then echo "OK: commands and skills are consistent"; exit 0; fi
 echo; echo "$problems problem(s) found."; exit 1

@@ -7,9 +7,13 @@
 # Exit code 0 = ok, 2 = no lib/ directory.
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ROOT="${1:-.}"
 cd "$ROOT" 2>/dev/null || { echo "Cannot enter $ROOT" >&2; exit 2; }
 [ -d lib ] || { echo "No lib/ directory found in $ROOT" >&2; exit 2; }
+. "$SCRIPT_DIR/../../clean-arch-overview/scripts/detect.sh"
+detect_bases
 
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t routescan)"
 trap 'rm -rf "$TMP"' EXIT
@@ -54,10 +58,10 @@ awk -F'\t' 'NR==FNR { c[$1] = $2; next }
 : > "$TMP/calls_raw"
 while IFS= read -r f; do
   grep -qE "(^|[^A-Za-z0-9_])Get\.(to|toNamed|off|offNamed|offAll|offAllNamed|offUntil|back|arguments|parameters|currentRoute)" "$f" 2>/dev/null || continue
-  il=0; grep -qE "extends +(ChangeNotifier|ValueNotifier|GetxController|GetxService|Cubit<|Bloc<)" "$f" && il=1
-  awk -v file="$f" -v il="$il" '
+  il=0; grep -qE "extends +(ChangeNotifier|ValueNotifier|$GETX_BASES|$CUBIT_BASES)( *<|[ {]|\$)" "$f" && il=1
+  awk -v file="$f" -v il="$il" -v members="$GX_NAV_MEMBERS" '
     { line = $0
-      while (match(line, /Get\.(toNamed|to|offAllNamed|offAll|offNamed|offUntil|off|back|arguments|parameters|currentRoute)/)) {
+      while (match(line, "Get\\.(" members ")")) {
         kind = substr(line, RSTART + 4, RLENGTH - 4); rest = substr(line, RSTART + RLENGTH)
         pre = (RSTART > 1) ? substr(line, RSTART - 1, 1) : ""
         nxt = substr(rest, 1, 1)

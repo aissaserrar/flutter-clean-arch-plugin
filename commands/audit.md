@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, AskUserQuestion
 
 # /audit
 
-Audit the Flutter project in the current directory (or the path passed as `$ARGUMENTS`). The audit is read-only except for two generated files per run, `.clean-arch/audit-YYYY-MM-DD-HHMM.html` and `.clean-arch/audit-YYYY-MM-DD-HHMM.json` (local time). Every run is kept; nothing is overwritten.
+Audit the Flutter project in the current directory (or the path passed as `$ARGUMENTS`). The audit is read-only except for generated files under `.clean-arch/`: `audit-YYYY-MM-DD-HHMM.html`, `audit-YYYY-MM-DD-HHMM.json` (kept every run), and `feature-map.suggested.yaml` (overwritten each run — discovered candidate features from the legacy layout).
 
 ## Steps
 
@@ -44,11 +44,7 @@ Audit the Flutter project in the current directory (or the path passed as `$ARGU
      || cmd.exe /c start "" "$(wslpath -w "$ROOT/.clean-arch/audit-$STAMP.html" 2>/dev/null)" 2>/dev/null
    ```
 
-5. **Print a short terminal summary** from `audit-$STAMP.json` (read it, do not re-scan): status, Dart file count, per-layer counts, GetX usage total with the top three files, violations count with the top three, Cubit/Bloc file count, features without a `test/features/<name>` folder. Then add the **next steps** straight from `next_steps` in the JSON (the report shows the same list under its architecture illustration): the first four as `order. command - title`, and the number of remaining ones. Mention `suggested_features` (legacy groups that could become features) when there are any, and that the report has a Today / Target illustration of the folder structure. Do not invent steps that are not in `next_steps`. If `delta` is not null, add the progress since the previous audit: the status change and every metric whose `change` is non-zero (`getx_usages 212 -> 187 (-25)`); say a `null` change means the older audit did not record that metric. If `delta` is null, say this is the first audit. Say that `coverage.not_checked` was not audited, so "compliant" means the listed checks passed, not a full review. State the compliance status plainly:
-   - `compliant`: no GetX, no errors or warnings, features structure present, BLoC/Cubit in use.
-   - `compliant_with_warnings`: as above but with style warnings only (`part`/`part of`, widgets in `core/`). Errors are import-rule and GetX findings.
-   - `needs_migration`: legacy state management (GetX, or StatefulWidget with no BLoC) and no BLoC found.
-   - `non_compliant`: anything else (violations, leftover GetX alongside BLoC, or no `lib/features/`).
+5. **Print a short terminal summary** from `audit-$STAMP.json` (read it, do not re-scan). Lead with **Distance to Clean Architecture** (`template` in JSON): `distance`, `score`/100, blockers/majors/minors, and the first 5–8 `gaps` as `severity · area — label`. Then secondary signals briefly: Dart file count, real features vs `screens/` Dart, Cubit/Bloc count, GetX total. Then **suggested features**: shape counts + top 5–8 candidates; note `feature-map.suggested.yaml`. Then **next steps** (first four + remaining count). If `delta` is not null, prefer score/blocker changes. State plainly that **compliant means close to Clean Architecture**, not “GetX is gone.”
 
    End with the report path.
 
@@ -59,10 +55,12 @@ Audit the Flutter project in the current directory (or the path passed as `$ARGU
    - **Yes:** summarise the migration plan using the `clean-arch-*` skills (feature shapes from `clean-arch-overview`, state from `clean-arch-presentation`, routing/DI from `clean-arch-di-routing`). Then show the recommended order from `${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/references/migration-workflow.md` (`/pre-check`, `/feature <name> --migrate`, `/route`, `/di`, `/kill-getx`, `/to-bloc`, tests and `/e2e`) and suggest starting with `/pre-check` on the first feature. Do not start any of them and do not edit any project file in this command.
    - **No:** stop.
 
-7. **Mention** that `.clean-arch/` can be added to the project's `.gitignore`. Do not edit `.gitignore` unless asked.
+7. **Confirm the migration settings once.** Read `migration_plan.settings` in the JSON. If `assumed` is `true` and BLoC infrastructure exists (`migration_plan` is not null), ask ONE `AskUserQuestion` with two questions: *scope* ("Migrate state management only (keep GetX navigation/DI), or remove GetX completely?") and *mode* ("Convert GetX controllers directly to Cubits (recommended), or go through a plain ChangeNotifier first (rewrites every controller twice)?"). Pre-select the plan's current values and say which project file each assumption came from (`settings.basis`). Then write `$ROOT/.clean-arch/config.json` with exactly `{"mode":"direct|interim","scope":"state|full","structure":true|false}` (`structure` is `true` when scope is `full`, otherwise keep the plan's value), re-run steps 2 to 4 so the report reflects the choice, and print the plan summary: number of waves and units, the first unit, and that the migration runs feature by feature (`/migrate` runs the whole plan). If `assumed` is `false`, skip this step. Writing `.clean-arch/config.json` is the only file this step changes.
+
+8. **Mention** that `.clean-arch/` can be added to the project's `.gitignore`. Do not edit `.gitignore` unless asked.
 
 ## Rules
 
-- Never modify files under `lib/` or `test/`.
+- Never modify files under `lib/` or `test/`. Generated under `.clean-arch/` only: audit HTML/JSON, `feature-map.suggested.yaml`, and (after step 7) `config.json`.
 - Do not recompute numbers by hand; the script output is the source of truth.
 - Report real results. If the script or the browser step fails, show the error.

@@ -12,12 +12,11 @@ The result is **not** Cubits. It is plain Flutter that compiles and behaves the 
 
 Shared gates (clean tree, analyzer baseline, scope confirmation, batches, format, report), conventions and the order of the commands are in `${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/references/migration-workflow.md`. Read it first; the steps below only add what is specific to this command.
 
+**Redirect.** The default mode is `direct`: the scan returns `"redirect": "to-bloc"` when the targets contain GetX controllers and the mode is `direct` (the default) or the project forbids `ChangeNotifier`/`ValueNotifier`. Stop, say why, and tell the user to run `/to-bloc` for the controllers: it converts them straight to Cubits, designed from the controller's intent, so each file is rewritten once. `/kill-getx` is then only for what is left afterwards (widgets, extensions, leftover imports). Only with `mode: interim` in `.clean-arch/config.json` (the user chose it in `/audit`) is the redirect empty and the interim form below used.
+
 ## Steps
 
-1. **Preconditions.**
-   - `pubspec.yaml` and `lib/` exist.
-   - `git status --porcelain` is empty. If not (or not a repository), recommend `/pre-check`, explain that a clean committed tree is the only easy undo, and ask with AskUserQuestion whether to continue. Default: stop.
-   - **Baseline:** run `flutter analyze --no-pub` and record the number of `error •` lines. If Flutter is missing, say the per-batch analyzer check cannot run and ask whether to continue anyway. If the baseline already has errors, say so: you can only judge regressions against it, so report the number and do not try to fix unrelated errors.
+1. **Preconditions.** Shared gates 1 and 2 (clean tree, analyzer baseline) from `migration-workflow.md`. If the baseline already has errors, report the number and do not fix unrelated ones.
 
 2. **Inventory and routing check** (read-only):
 
@@ -39,15 +38,9 @@ Shared gates (clean tree, analyzer baseline, scope confirmation, batches, format
 
    `skipped_deprecated_copies` are frozen originals from `/feature --migrate`: mention the count and never touch them. If nothing is handled here, say so and stop.
 
-3. **Confirm the scope, and warn about its size.** Before touching anything, tell the user in plain words, with the real numbers from the scan:
-   - how many files this command will change (`totals.files` that have something handled here: controllers, views, other), and how many import lines may be removed;
-   - that this is usually a lot of files, that it will be done feature by feature in batches of about 10 files with a `flutter analyze` check after each batch, and that it can take many rounds and a lot of review time;
-   - that each batch edits real code by hand-written transformation, so every batch should be reviewed (`git diff`) and committed before the next;
-   - what is deferred or manual and will remain.
+3. **Confirm the scope.** Shared gate 4: give the real numbers (files to change from `totals.files`, import lines to remove, what stays deferred or manual), then ask **Start with the first batch** (default), **Choose which feature/folder**, or **Cancel**. A batch is one feature or about 10 files; ask again before each next batch.
 
-   Then ask with AskUserQuestion: **Start with the first batch** (default for a small project), **Choose which feature/folder to start with**, or **Cancel**. Do not continue without an explicit answer. A batch is one feature (or at most about 10 files). Never run the whole project in one go. After each batch, ask again before the next one, showing how many files remain.
-
-   **Loop mode.** If `$ARGUMENTS` has `--batches N` (and optionally `--checkpoint`), follow "Batch loop" in `migration-workflow.md`. This confirmation is then the only one: state N, the files expected to change, the stop conditions and, with `--checkpoint`, the branch and commit pattern, and ask: **Run up to N batches** (default), **Run one batch only**, **Cancel**. Without `--batches`, ask before every batch as above.
+   **Loop mode.** With `--batches N` (and optionally `--checkpoint`) follow "Batch loop" in `migration-workflow.md`; this confirmation is then the only one.
 
 4. **Refactor the batch, controllers first.** For each file, follow `getx-migration.md` exactly:
    - Controller: `ChangeNotifier`, `.obs` -> private field + getter, mutations call `notifyListeners()`, `update()` -> `notifyListeners()`, `onClose` -> `dispose`.
@@ -71,7 +64,7 @@ Shared gates (clean tree, analyzer baseline, scope confirmation, batches, format
 
    It removes `package:get` imports only from files with no GetX symbol left and never edits `pubspec.yaml`. Run the analyzer once more after `--apply`. If it now reports a missing member, the file was using a GetX extension: restore the import line in that file and list it.
 
-7. **Next batch.** Without `--batches`: offer the next batch and ask. In loop mode: print the batch summary (with the progress line), check the stop conditions from `migration-workflow.md`, and start the next batch only if none applies and batches remain. When the loop ends, say which condition ended it. When no file imports `package:get`, tell the user to run `flutter pub remove get` themselves (the script prints this). When no file imports `package:get`, tell the user to run `flutter pub remove get` themselves (the script prints this).
+7. **Next batch.** Without `--batches`: offer the next batch and ask. In loop mode: print the batch summary (with the progress line), check the stop conditions from `migration-workflow.md`, and start the next batch only if none applies and batches remain. When the loop ends, say which condition ended it. When no file imports `package:get`, tell the user to run `flutter pub remove get` themselves (the script prints this).
 
 8. **Final report.** Real numbers only: files changed, GetX usages before and after (re-run the scan), analyzer errors before and after, deferred and manual leftovers by file, and what to run next. Next: `/route` or `/di` first if anything is still deferred to them, otherwise `/to-bloc` (order table in `migration-workflow.md`). Suggest committing after each successful batch.
 

@@ -11,9 +11,16 @@
 # Exit code 0 = ok, 2 = no lib/ directory.
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ROOT="${1:-.}"; [ $# -gt 0 ] && shift
 cd "$ROOT" 2>/dev/null || { echo "Cannot enter $ROOT" >&2; exit 2; }
 [ -d lib ] || { echo "No lib/ directory found in $ROOT" >&2; exit 2; }
+. "$SCRIPT_DIR/../../clean-arch-overview/scripts/detect.sh"
+# Project conventions (mode direct|interim, forbidden patterns, base classes) decide how getx candidates are handled
+eval "$(bash "$SCRIPT_DIR/../../clean-arch-overview/scripts/conventions_scan.sh" "$PWD" --env 2>/dev/null)"
+: "${CONV_MODE:=direct}" "${CONV_ASSUMED:=true}" "${CONV_CN_FORBIDDEN:=false}" "${CONV_NO_TESTS:=false}" "${CONV_NO_COMMITS:=false}"
+detect_bases
 
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t tobloc)"
 trap 'rm -rf "$TMP"' EXIT
@@ -25,6 +32,7 @@ frozen() { head -n 3 "$1" 2>/dev/null | grep -q "DEPRECATED: migrated by /featur
 : > "$TMP/files"; : > "$TMP/unresolved"
 if [ $# -eq 0 ]; then set -- lib; fi
 for t in "$@"; do
+  case "$t" in */*|*.dart) ;; *) if u="$(resolve_target "$t")"; then printf '%s\n' "$u" >> "$TMP/files"; continue; fi ;; esac
   if [ -d "lib/features/$t" ]; then p="lib/features/$t"
   elif [ -e "$t" ]; then p="$t"
   elif [ -e "lib/$t" ]; then p="lib/$t"
@@ -46,11 +54,11 @@ while IFS= read -r f; do
   if frozen "$f"; then skipped_frozen=$((skipped_frozen + 1)); continue; fi
 
   # --- class based candidates ---
-  grep -nE "^[[:space:]]*(abstract +|base +|final +)*class +[A-Za-z0-9_]+( *<[^>]*>)? +extends +(ChangeNotifier|ValueNotifier<|GetxController)" "$f" 2>/dev/null | while IFS= read -r hit; do
+  grep -nE "^[[:space:]]*(abstract +|base +|final +)*class +[A-Za-z0-9_]+( *<[^>]*>)? +extends +(ChangeNotifier|ValueNotifier<|$GETX_BASES)( *<|[ {]|\$)" "$f" 2>/dev/null | while IFS= read -r hit; do
     ln="${hit%%:*}"
     cls="$(printf '%s' "$hit" | sed -E 's/^[0-9]+:[[:space:]]*(abstract +|base +|final +)*class +([A-Za-z0-9_]+).*/\2/')"
     sup="$(printf '%s' "$hit" | sed -E 's/.*extends +([A-Za-z]+).*/\1/')"
-    case "$sup" in GetxController) kind="getx" ;; *) kind="notifier" ;; esac
+    if printf '%s' "$sup" | grep -qxE "$GETX_BASES"; then kind="getx"; else kind="notifier"; fi
     notify="$(count 'notifyListeners\(' "$f")"; asyncm="$(count '(Future<|async[ ({])' "$f")"
     pubm="$(count '^[[:space:]]+(Future<[^>]*>|void|bool|int|String|double|Stream<[^>]*>)[[:space:]]+[a-z][A-Za-z0-9_]*\(' "$f")"
     fields="$(count '^[[:space:]]+(final |late )?[A-Za-z<>?, ]+[[:space:]]+_[a-z][A-Za-z0-9_]*[[:space:]]*(=|;)' "$f")"
@@ -108,13 +116,15 @@ n_stateful="$(awk -F'\t' '$4=="stateful"' "$TMP/out" | wc -l | tr -d ' ')"
 
 # ---- Project facts ----
 NB='(^|[^A-Za-z0-9_])'
-getx_left="$(grep -rEl --include='*.dart' "import +['\"]package:get/|${NB}Get\\.[a-z]|GetxController|${NB}Obx\\(" lib 2>/dev/null | while IFS= read -r g; do frozen "$g" || echo "$g"; done | wc -l | tr -d ' ')"
+getx_left="$(grep -rEl --include='*.dart' "import +['\"]package:get/|${NB}Get\\.[a-z]|GetxController|$RE_GETX|${NB}Obx\\(" lib 2>/dev/null | while IFS= read -r g; do frozen "$g" || echo "$g"; done | wc -l | tr -d ' ')"
 pub() { [ -f pubspec.yaml ] && grep -qE "^[[:space:]]*$1:" pubspec.yaml && echo true || echo false; }
-cubits_existing="$(grep -rlE --include='*.dart' "extends +(Hydrated)?(Cubit|Bloc)<" lib 2>/dev/null | wc -l | tr -d ' ')"
+cubits_existing="$(grep -rlE --include='*.dart' "$RE_CUBIT" lib 2>/dev/null | wc -l | tr -d ' ')"
 
 cat <<JSON
 {
   "project": "$(jstr "$(basename "$(pwd)")")",
+  "mode": "$CONV_MODE",
+  "conventions": {"mode_assumed": $CONV_ASSUMED, "change_notifier_forbidden": $CONV_CN_FORBIDDEN, "no_tests": $CONV_NO_TESTS, "no_commits": $CONV_NO_COMMITS, "project_base_classes": "$(jstr "$CONV_BASES")", "form_siblings": "$(jstr "$CONV_GETX_SIBLINGS")", "basis": "$(jstr "$CONV_BASIS")"},
   "unresolved_targets": $(arr "$TMP/unresolved"),
   "skipped_deprecated_copies": $skipped_frozen,
   "pubspec": {"flutter_bloc": $(pub flutter_bloc), "bloc": $(pub bloc), "equatable": $(pub equatable), "bloc_presentation": $(pub bloc_presentation), "bloc_test": $(pub bloc_test), "mocktail": $(pub mocktail), "provider": $(pub provider), "get": $(pub get)},

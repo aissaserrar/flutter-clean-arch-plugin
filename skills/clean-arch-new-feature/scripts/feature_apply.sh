@@ -41,7 +41,8 @@ while IFS="$TAB" read -r from to; do
   case "$to" in lib/*.dart) ;; *) echo "REFUSED: destination must be lib/...dart: $to" >&2; bad=1; continue ;; esac
   [ -f "$from" ] || { echo "REFUSED: source missing: $from" >&2; bad=1; }
   [ -e "$to" ] && { echo "REFUSED: destination exists: $to" >&2; bad=1; }
-  grep -qE "^part( of)? " "$from" 2>/dev/null && { echo "REFUSED: uses part/part of: $from" >&2; bad=1; }
+  # Refuse library fragments only. Hosts with `part 'x.g.dart'` are fine (move the host + part together).
+  grep -qE "^part of " "$from" 2>/dev/null && { echo "REFUSED: uses part of: $from" >&2; bad=1; }
   head -n 3 "$from" 2>/dev/null | grep -q "DEPRECATED: migrated by /feature --migrate" && { echo "REFUSED: already a deprecated copy: $from" >&2; bad=1; }
 done < "$TMP/plan"
 [ "$(cut -f2 "$TMP/plan" | sort | uniq -d | wc -l | tr -d ' ')" -eq 0 ] || { echo "REFUSED: two files map to the same destination" >&2; bad=1; }

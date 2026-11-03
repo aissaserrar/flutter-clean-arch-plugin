@@ -47,3 +47,24 @@ A file that still has one of these keeps its `package:get` import. `kill_getx_fi
 ## After the interim form
 
 `/to-bloc` (details and a worked example in `notifier-to-cubit.md`): `ChangeNotifier` becomes `Cubit<State>` with sealed `Initial/Loading/Success/Failure` states (see `cubit-vs-bloc.md`), `ListenableBuilder` becomes `BlocBuilder`, and `notifyListeners()` becomes `emit(...)`.
+
+## Direct mode (GetX → Cubit, no ChangeNotifier)
+
+Default when `/audit` saved `"mode": "direct"`, or when the project forbids `ChangeNotifier`. Follow `clean-arch-presentation` and `docs/simplified-architecture-with-domain.md`: extend **`Cubit` or `Bloc` only** — never `DataCubit` / `BaseCubit` / `PaginatedCubit`.
+
+Before editing: read `CLAUDE.md` / `AGENTS.md` for DI, tests, commits, and whether navigation stays on GetX. Design the whole feature first (shape, sealed states, dependencies, presentation events), then per controller:
+
+1. Create the cubit; mark the old controller `@Deprecated('Use <Name>Cubit')` — do not delete it yet.
+2. Rewire UI to `BlocBuilder` / `BlocSelector` / `BlocListener`; provide the cubit the way the project already does.
+
+| Controller kind | Becomes |
+|---|---|
+| `data` (`StateBox`) | `Cubit` + sealed `Initial`/`Loading`/`Success`/`Failure` (keep `previousData` on refresh/failure when needed) |
+| `paginated` | `Cubit` or `Bloc` with load / load-more and sealed state |
+| `plain` | `Cubit` (or `Bloc` if a transformer is needed) |
+| `form` | form cubit per `clean-arch-forms` (ask first) |
+| `service` | plain service, not a cubit |
+| `lifecycle` | cubit + widget-side lifecycle (`onClose` → `close()`) |
+| `animation` | stay in the widget `State` |
+
+Move API/JSON/storage out of the cubit into data; business rules into use cases. `obs`/`Rx` → immutable state; navigation/snackbars from the controller → presentation events (or leave GetX nav in the widget with `// TODO(to-bloc)` when scope is `state`). Flag unmappable constructs with `// TODO(to-bloc): …`.

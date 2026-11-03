@@ -8,9 +8,13 @@
 # Exit code 0 = ok, 2 = no lib/ directory.
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ROOT="${1:-.}"
 cd "$ROOT" 2>/dev/null || { echo "Cannot enter $ROOT" >&2; exit 2; }
 [ -d lib ] || { echo "No lib/ directory found in $ROOT" >&2; exit 2; }
+. "$SCRIPT_DIR/../../clean-arch-overview/scripts/detect.sh"
+detect_bases
 
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t discan)"
 trap 'rm -rf "$TMP"' EXIT
@@ -26,13 +30,13 @@ fcnt() { xargs grep -lE "$1" < "$TMP/files" 2>/dev/null | wc -l | tr -d ' '; }
 NB='(^|[^A-Za-z0-9_])'
 
 # ---- How DI is done today ----
-getx_hits="$(cnt "${NB}Get\\.(find|put|lazyPut|putAsync|create|replace|delete|isRegistered)([^A-Za-z0-9_]|\$)|extends +Bindings|${NB}BindingsBuilder")"
-getx_files="$(fcnt "${NB}Get\\.(find|put|lazyPut|putAsync|create|replace|delete|isRegistered)([^A-Za-z0-9_]|\$)|extends +Bindings")"
+getx_hits="$(cnt "$RE_GX_DI")"
+getx_files="$(fcnt "$RE_GX_DI")"
 getit_hits="$(cnt "${NB}(getIt|GetIt\\.I|GetIt\\.instance|locator|sl)(<|\\()|registerFactory|registerLazySingleton|registerSingleton")"
 provider_hits="$(cnt "${NB}(MultiProvider|ProxyProvider|ChangeNotifierProxyProvider|Provider<|Provider\\()|context\\.(read|watch)<")"
 injectable_hits="$(cnt "@(injectable|lazySingleton|singleton|LazySingleton|Singleton|module|InjectableInit|factoryMethod)")"
 getit_in_logic="$(xargs grep -lE "${NB}(getIt|GetIt\\.I|GetIt\\.instance|locator)(<|\\()|${NB}Get\\.find" < "$TMP/files" 2>/dev/null | while IFS= read -r f; do
-  grep -qE "extends +(Cubit<|Bloc<|ChangeNotifier|GetxController)|abstract +class|class +[A-Za-z0-9_]*(Repository|DataSource|UseCase)" "$f" && echo "$f"; done | wc -l | tr -d ' ')"
+  grep -qE "extends +($CUBIT_BASES|ChangeNotifier|$GETX_BASES)( *<|[ {]|\$)|abstract +class|class +[A-Za-z0-9_]*(Repository|DataSource|UseCase)" "$f" && echo "$f"; done | wc -l | tr -d ' ')"
 existing_wiring="$(find lib -name '*_providers.dart' -o -name '*_di.dart' -o -name 'global_providers.dart' -o -name 'injection*.dart' -o -name 'locator*.dart' -o -name 'service_locator*.dart' 2>/dev/null | sort | paste -sd, -)"
 
 # ---- Classes by role ----
@@ -60,7 +64,10 @@ while IFS= read -r f; do
         *Service|*Client|*Api) role="service" ;;
       esac
     fi
-    case "$ext" in Cubit|HydratedCubit|Bloc|HydratedBloc) role="cubit_or_bloc" ;; ChangeNotifier|ValueNotifier|GetxController|GetxService) role="state_holder" ;; esac
+    if [ -n "$ext" ]; then
+      if printf '%s' "$ext" | grep -qxE "$CUBIT_BASES"; then role="cubit_or_bloc"
+      elif printf '%s' "$ext" | grep -qxE "ChangeNotifier|ValueNotifier|$GETX_BASES"; then role="state_holder"; fi
+    fi
     [ -n "$role" ] || continue
     [ "$abs" = 1 ] && [ "$role" != "repository_interface" ] && [ "$role" != "data_source_interface" ] && continue
     deps="$(grep -E "^[[:space:]]+(final|late +final) +[A-Z][A-Za-z0-9_]*(<[^>]*>)?[?]? +_?[a-z][A-Za-z0-9_]*;" "$f" 2>/dev/null \

@@ -94,5 +94,7 @@ The plugin has commands for this: `/audit`, `/pre-check`, `/feature <name> --mig
 - `../clean-arch-domain/references/when-to-use-interfaces.md`: rule of thumb for interfaces vs concrete classes
 - `scripts/check_dependencies.sh [lib_dir]`: verifies the import rules above (exit 1 on violations). Run it after creating or moving files and before finishing a review:
   `bash ${CLAUDE_PLUGIN_ROOT}/skills/clean-arch-overview/scripts/check_dependencies.sh lib`
-- `scripts/audit.sh [project_root]`: full read-only audit as JSON (file distribution, GetX leakage, import rules via `check_dependencies.sh`, a few style checks). Used by the `/audit` command, which renders it as an HTML report.
+- `scripts/audit.sh [project_root]`: full read-only audit as JSON. **Primary signal:** distance to `docs/simplified-architecture-with-domain.md` (`template` scorecard). Secondary: GetX inventory, import rules, engineering heuristics. Used by `/audit`.
+- `scripts/template_compliance_scan.sh [project_root]`: template distance scorecard (structure, stack, presentation, domain/data, errors, boundaries, composition).
+- `scripts/engineering_scan.sh [lib_dir]`: layer-leak, size and hygiene checks used by `audit.sh` (also runnable alone).
 - `scripts/pre_check.sh [project_root] [target ...]`: read-only git state and impact metrics (files, LOC, GetX hits, dependents, test coverage) for a refactor target. Used by the `/pre-check` command, which adds `flutter analyze` and a GO / NO-GO verdict.
